@@ -1,0 +1,6 @@
+[submodule "Network-go"]
+	path = Network-go
+	url = git@github.com:haavardsyslak/Network-go.git
+[submodule "local_elevator/driver-go"]
+	path = local_elevator/driver-go
+	url = https://github.com/TTK4145/driver-go.git
