@@ -4,3 +4,6 @@
 [submodule "local_elevator/driver-go"]
 	path = local_elevator/driver-go
 	url = https://github.com/TTK4145/driver-go.git
+[submodule "localelevator/driver-go"]
+	path = localelevator/driver-go
+	url = https://github.com/TTK4145/driver-go.git
