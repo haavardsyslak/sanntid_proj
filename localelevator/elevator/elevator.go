@@ -109,9 +109,22 @@ func get_elevator_dir(floor int, toFloor int) (elevio.MotorDirection) {
 }
 
 func OpenDoors(doorsOpenCh chan bool) {
-    time.Sleep(1 * time.Second)
+    fmt.Println("Opening doors")
+    elevio.SetDoorOpenLamp(true)
+    time.Sleep(1 * time.Second) // TODO: Spesification says 3 sec
+    elevio.SetDoorOpenLamp(false)
+    fmt.Println("Doors closed")
     doorsOpenCh <- true
+    fmt.Println("Doors closed")
     // TODO: open the doors
+}
+
+func SetLights(e Elevator) {
+    for f := e.MinFloor; f <= e.MaxFloor; f++ {
+        elevio.SetButtonLamp(elevio.BT_HallUp, f, e.Requests.Up[f])
+        elevio.SetButtonLamp(elevio.BT_HallDown, f, e.Requests.Down[f])
+        elevio.SetButtonLamp(elevio.BT_Cab, f, e.Requests.ToFloor[f])
+    }
 }
 
 func PrintElevator(e Elevator) {
@@ -119,8 +132,8 @@ func PrintElevator(e Elevator) {
     printState(e)
     printDir(e.Dir)
     printRequests(e)
-
 }
+
 
 func printRequests(e Elevator) {
     up := make([]string, 0)

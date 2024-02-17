@@ -16,9 +16,11 @@ func UpdateRequests(event elevio.ButtonEvent, requests *elevator.Requests) {
 	}
 }
 
-func HasRequestsBelow(elevator elevator.Elevator) (bool) {
+func HasRequestBelow(elevator elevator.Elevator) (bool) {
     for f:= elevator.CurrentFloor - 1; f >= elevator.MinFloor; f-- {
-        if elevator.Requests.Down[f] || elevator.Requests.ToFloor[f] {
+        if elevator.Requests.Down[f] || 
+        elevator.Requests.ToFloor[f] ||
+        elevator.Requests.Up[f] {
             return true
         }
     }
@@ -27,7 +29,9 @@ func HasRequestsBelow(elevator elevator.Elevator) (bool) {
 
 func HasRequestAbove(elevator elevator.Elevator) (bool) {
     for f := elevator.CurrentFloor + 1; f <= elevator.MaxFloor; f++ {
-        if elevator.Requests.Up[f] || elevator.Requests.ToFloor[f] {
+        if elevator.Requests.Up[f] || 
+        elevator.Requests.ToFloor[f] ||
+        elevator.Requests.Down[f]{
             return true
         }
     }
@@ -41,7 +45,9 @@ func HasRequestHere(floor int, elevator elevator.Elevator) (bool) {
     case elevio.MD_Down:
         return (elevator.Requests.Down[floor] || elevator.Requests.ToFloor[floor])
     default:
-        return (elevator.Requests.Down[floor] || elevator.Requests.ToFloor[floor] || elevator.Requests.Up[floor])
+        return (elevator.Requests.Down[floor] || 
+        elevator.Requests.ToFloor[floor] || 
+        elevator.Requests.Up[floor])
     }
 }
 
@@ -55,5 +61,42 @@ func ClearRequest(floor int, e *elevator.Elevator, reqType elevio.ButtonType) {
         e.Requests.ToFloor[floor] = false
     case elevio.BT_Cab:
         e.Requests.ToFloor[floor] = false
+    }
+}
+
+func GetNewDirectionAndState(e elevator.Elevator) (elevio.MotorDirection, elevator.ElevatorState) {
+    switch e.Dir {
+    case elevio.MD_Up:
+        if HasRequestHere(e.CurrentFloor, e) {
+            return elevio.MD_Up, elevator.DOOR_OPEN
+        } else if HasRequestAbove(e) {
+            return elevio.MD_Up, elevator.MOVING
+        } else if HasRequestBelow(e) {
+             return elevio.MD_Down, elevator.MOVING
+        } else {
+            return elevio.MD_Stop, elevator.IDLE
+        }
+    case elevio.MD_Down:
+         if HasRequestHere(e.CurrentFloor, e) {
+            return elevio.MD_Down, elevator.DOOR_OPEN
+        } else if HasRequestBelow(e) {
+            return elevio.MD_Down, elevator.MOVING
+        } else if HasRequestAbove(e) {
+            return elevio.MD_Up, elevator.MOVING
+        } else {
+            return elevio.MD_Stop, elevator.IDLE
+        }
+    case elevio.MD_Stop:
+        if HasRequestHere(e.CurrentFloor, e) {
+            return elevio.MD_Stop, elevator.DOOR_OPEN
+        } else if HasRequestAbove(e) {
+            return elevio.MD_Up, elevator.MOVING
+        } else if HasRequestBelow(e) {
+            return elevio.MD_Down, elevator.MOVING
+        } else {
+            return elevio.MD_Stop, elevator.IDLE
+        }
+    default:
+        return elevio.MD_Stop, elevator.IDLE
     }
 }

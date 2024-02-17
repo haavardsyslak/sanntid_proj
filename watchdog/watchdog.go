@@ -1,7 +1,6 @@
 package watchdog
 
 import (
-	"fmt"
 	"time"
 )
 
