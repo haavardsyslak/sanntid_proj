@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"sanntid/watchdog"
 	"time"
-    "fmt"
 )
 
 func ListenAndServe(
@@ -21,7 +20,6 @@ func ListenAndServe(
 	elevatorUpdateCh chan elevator.Elevator,
 	printEnabled bool,
 ) {
-    fmt.Println("ASDASDF")
 	buttonCh := make(chan elevio.ButtonEvent)
 	floorSensCh := make(chan int)
 	stopButtonCh := make(chan bool)
@@ -53,6 +51,7 @@ func ListenAndServe(
 		select {
 		case req := <-requestUpdateCh:
 			e.Requests = req
+            elevator.SetLights(e)
 			handleRequestUpdate(&e, onDoorsClosingCh, obstructionCh)
 			elevatorUpdateCh <- e
 
@@ -72,6 +71,7 @@ func ListenAndServe(
 		case <-onDoorsClosingCh:
 			stopedAtFloor <- e.CurrentFloor
 			e.Requests = <-requestUpdateCh
+            elevator.SetLights(e)
 			handleDoorsClosing(&e, onDoorsClosingCh, obstructionCh)
 			elevatorUpdateCh <- e
 
@@ -95,8 +95,6 @@ func ListenAndServe(
 func handleRequestUpdate(e *elevator.Elevator,
 	onDoorClosingCh chan bool,
 	obstructionCh chan bool) {
-	// TODO: The requests recieved from the request handler are assumed to be true,
-	// so we should now light the buttons
 	switch e.State {
 	case elevator.IDLE:
 		e.Dir, e.State = requests.GetNewDirectionAndState(*e)
