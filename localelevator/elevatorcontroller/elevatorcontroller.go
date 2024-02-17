@@ -2,13 +2,12 @@ package elevatorcontroller
 
 import (
 	"Driver-go/elevio"
-	"fmt"
 	"localelevator/elevator"
 	"localelevator/requests"
 	"log"
 
-	// "os"
-	// "os/exec"
+	"os"
+	"os/exec"
 	"sanntid/watchdog"
 	"time"
 )
@@ -20,6 +19,7 @@ func ListenAndServe(
 	stopedAtFloor chan int,
 	orderChan chan elevator.Order,
     elevatorUpdateCh chan elevator.Elevator,
+    printEnabled bool,
 ) {
 	buttonCh := make(chan elevio.ButtonEvent)
 	floorSens_Ch := make(chan int)
@@ -51,14 +51,12 @@ func ListenAndServe(
 
 	ticker := time.NewTicker(time.Millisecond * 500)
 	elevator.PollElevatorIO(buttonCh, floorSens_Ch, stopButton_Ch)
-    elevator.PrintElevator(e)
 	for {
 		select {
         case req := <- requestUpdateCh:
             e.Requests = req
             handleRequestUpdate(&e, onDoorsClosing_Ch)
             elevatorUpdateCh <- e
-			elevator.PrintElevator(e)
 		case event := <- buttonCh:
 			//requests.UpdateRequests(event, *e.Requests)
 			//handle_button_press(event, e, doorClosedCh)
@@ -74,19 +72,18 @@ func ListenAndServe(
             }
 
 		case <-onDoorsClosing_Ch:
-            fmt.Println("Doors")
             stopedAtFloor <- e.CurrentFloor
             e.Requests = <- requestUpdateCh 
 			handleDoorsClosing(&e, onDoorsClosing_Ch)
 			elevator.PrintElevator(e)
             elevatorUpdateCh <- e
 		case <-ticker.C:
-            //   fmt.Println("Ticker")
-			// cmd := exec.Command("clear")
-			// cmd.Stdout = os.Stdout
-			// cmd.Run()
-			//elevator.PrintElevator(e)
-
+            if printEnabled {
+                cmd := exec.Command("clear")
+                cmd.Stdout = os.Stdout
+                cmd.Run()
+                elevator.PrintElevator(e)
+            }
 			if e.State != elevator.MOVING {
 				watchdog.Feed(floorWatchdog)
 			}

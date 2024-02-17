@@ -1,7 +1,6 @@
 package main
 
 import (
-    "fmt"
 	"Driver-go/elevio"
 	"localelevator/elevator"
 	"localelevator/elevatorcontroller"
@@ -29,11 +28,14 @@ func main() {
 	orderCh := make(chan elevator.Order)
 	elevatorUpdateCh := make(chan elevator.Elevator)
 	requestUpdateCh := make(chan elevator.Requests)
+
 	go elevatorcontroller.ListenAndServe(elev,
 		requestUpdateCh,
 		elevatorStuckCh,
 		stopedAtFloor,
-		orderCh, elevatorUpdateCh)
+		orderCh, 
+        elevatorUpdateCh,
+        false)
 
 	for {
 		select {
@@ -48,7 +50,6 @@ func main() {
 }
 
 func clearRequest(floor int, e elevator.Elevator) elevator.Requests {
-    fmt.Println(floor)
     requests := e.Requests
     switch e.Dir {
     case elevio.MD_Up:
@@ -62,7 +63,6 @@ func clearRequest(floor int, e elevator.Elevator) elevator.Requests {
         requests.ToFloor[floor] = false
         requests.Up[floor] = false
     }
-    fmt.Println(requests)
     return requests
 }
 
