@@ -33,6 +33,7 @@ type Elevator struct {
 	MaxFloor     int
 	MinFloor     int
 	CurrentFloor int
+    Id           string
 }
 
 func Init() int {
@@ -49,7 +50,7 @@ func Init() int {
 }
 
 func goToKnownFloor(floorSenseCh chan int) int {
-	// go up for 4 sec -> reach a floor -> return floor
+	// go up for 4 sec -> reach a floor? -> return floor
 	// Else go down for 4 sec -> reach a floor? -> return floor
 	// Else panic
 	ticker := time.NewTicker(time.Second * 4)
