@@ -55,9 +55,15 @@ func clearRequest(floor int, e elevator.Elevator) elevator.Requests {
     case elevio.MD_Up:
         requests.Up[floor] = false
         requests.ToFloor[floor] = false
+        if floor == e.MaxFloor {
+            requests.Down[floor] = false
+        }
     case elevio.MD_Down:
         requests.Down[floor] = false
         requests.ToFloor[floor] = false
+        if floor == e.MinFloor {
+            requests.Up[floor] = false
+        }
     default:
         requests.Down[floor] = false
         requests.ToFloor[floor] = false

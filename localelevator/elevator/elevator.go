@@ -124,7 +124,6 @@ func OpenDoors(doorsOpenCh chan bool, obstructionCh chan bool) {
                 ticker.Reset(500 * time.Millisecond)
             }
         case <- ticker.C:
-            fmt.Println("Ticker..")
             counter += 1
             if counter >= 6 {
                 elevio.SetDoorOpenLamp(false)

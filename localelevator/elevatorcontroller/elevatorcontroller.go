@@ -125,16 +125,22 @@ func handleFloorArrival(floor int,
 	onDoorsClosingCh chan bool,
 	obstructionCh chan bool) bool {
 	e.CurrentFloor = floor
+    elevio.SetFloorIndicator(floor)
 	if e.State == elevator.IDLE || e.State == elevator.DOOR_OPEN {
 		return false
 	}
-	e.Dir, e.State = requests.GetNewDirectionAndState(*e)
-	if e.State == elevator.DOOR_OPEN {
-		elevator.Stop()
-		go elevator.OpenDoors(onDoorsClosingCh, obstructionCh)
-		return true
-	} else {
-		elevio.SetMotorDirection(e.Dir)
-	}
+    if requests.ShouldStop(*e) {
+        elevator.Stop()
+        e.State = elevator.DOOR_OPEN
+        go elevator.OpenDoors(onDoorsClosingCh, obstructionCh)
+    }
+	// e.Dir, e.State = requests.GetNewDirectionAndState(*e)
+	// if e.State == elevator.DOOR_OPEN {
+	// 	elevator.Stop()
+	// 	go elevator.OpenDoors(onDoorsClosingCh, obstructionCh)
+	// 	return true
+	// } else {
+	// 	elevio.SetMotorDirection(e.Dir)
+	// }
 	return false
 }

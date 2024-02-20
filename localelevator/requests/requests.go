@@ -82,6 +82,24 @@ func ClearRequest(floor int, e *elevator.Elevator, reqType elevio.ButtonType) {
 	}
 }
 
+func ShouldStop(e elevator.Elevator) (bool) {
+    switch(e.Dir){
+    case elevio.MD_Down:
+        return e.Requests.Down[e.CurrentFloor] ||
+        e.Requests.ToFloor[e.CurrentFloor]      ||
+        !HasRequestBelow(e);
+    case elevio.MD_Up:
+            return e.Requests.Up[e.CurrentFloor]   ||
+            e.Requests.ToFloor[e.CurrentFloor] ||
+            !HasRequestAbove(e);
+    case elevio.MD_Stop:
+        return true
+    default:
+        return true;
+    }
+}
+
+
 func GetNewDirectionAndState(e elevator.Elevator) (elevio.MotorDirection, elevator.ElevatorState) {
 	switch e.Dir {
 	case elevio.MD_Up:
