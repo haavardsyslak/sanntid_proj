@@ -1,17 +1,21 @@
 package conn
 
 import (
-	"Network-go/network/peers"
+	"errors"
+	// "fmt"
 	"sanntid/localelevator/elevator"
+	"sync"
 	"time"
 )
 
-type elevatorPacket struct {
+type ElevatorPacket struct {
 	Elevator       elevator.Elevator
 	Checksum       string
 	SequenceNumber uint32
 }
 
+var sequenceNumbers = make(map[string]uint32)
+var sequenceNumbersMutex sync.Mutex
 
 func UpdateElevators(elevatorUpdateCh chan elevator.Elevator) {
 	elevators := make(map[string]elevator.Elevator)
@@ -23,46 +27,99 @@ func UpdateElevators(elevatorUpdateCh chan elevator.Elevator) {
 	}
 }
 
-func TransmittRecieve(elevatorUpdateCh chan elevator.Elevator,
-	elevatorLostCh chan string,
-	elevatorTxCh chan elevatorPacket,
-    elevatorRxCh chan elevatorPacket) {
+func TransmitRecieve(elevatorUpdateToNetworkCh <- chan elevator.Elevator,
+    elevatorUpdateFromNetworkCh chan <- elevator.Elevator,
+	elevatorLostCh <- chan string,
+	elevatorTxCh chan <- ElevatorPacket,
+    elevatorRxCh <- chan ElevatorPacket) {
 
-	bcastTimer := time.NewTicker(100 * time.Millisecond)
+	bcastTimer := time.NewTicker(20 * time.Millisecond)
 	elevators := make(map[string]elevator.Elevator)
 	for {
 		select {
-		case e := <-elevatorUpdateCh:
+		case e := <-elevatorUpdateToNetworkCh:
 			elevators[e.Id] = e
+            incrementSequenceNumber(e.Id)
 	        
         case id := <- elevatorLostCh:
             delete(elevators, id)
+
 		case <-bcastTimer.C:
 			for _, elevator := range elevators {
-				elevatorTxCh <- makeElevatorPacket(elevator)
+                packet := makeElevatorPacket(elevator)
+				elevatorTxCh <- packet
 			}
         case packet := <- elevatorRxCh:
-            HandleIncommingPacket(packet)
+            e, err := handleIncommingPacket(packet, elevators)
+            if err != nil {
+                // fmt.Println(err)
+                continue
+            }
+            //elevator.PrintElevator(packet.Elevator)
+            elevators[packet.Elevator.Id] = packet.Elevator
+            elevatorUpdateFromNetworkCh <- e 
 		}
 	}
 }
 
-func HandleIncommingPacket(packet elevatorPacket) {
-    if shouldScrapPacket(packet) {
-        return nil 
-    }
-    return packet.Elevator 
+func incrementSequenceNumber(Id string) {
+    sequenceNumbersMutex.Lock()
+    defer sequenceNumbersMutex.Unlock()
+    sequenceNumbers[Id]++;
 }
 
-func makeElevatorPacket(e elevator.Elevator) elevatorPacket {
-	return elevatorPacket{
-		SequenceNumber: 0,
+func updateSequenceNumber(Id string, number uint32) {
+    sequenceNumbersMutex.Lock()
+    defer sequenceNumbersMutex.Unlock()
+    sequenceNumbers[Id] = number
+}
+
+func handleIncommingPacket(packet ElevatorPacket, elevators map[string]elevator.Elevator) (elevator.Elevator, error){
+    if shouldScrapPacket(&packet, elevators) {
+        return elevator.Elevator{}, errors.New("Packet scraped was scraped")
+    }
+    return packet.Elevator, nil 
+}
+
+func shouldScrapPacket(packet *ElevatorPacket, elevators map[string]elevator.Elevator) bool {
+    sequenceNumbersMutex.Lock()
+    currentSequenceNumber := sequenceNumbers[packet.Elevator.Id]
+    sequenceNumbersMutex.Unlock()
+    // TODO check sequence numbers...
+    if packet.SequenceNumber < currentSequenceNumber {
+        return true
+    // } else if packet.SequenceNumber == currentSequenceNumber {
+    //     currentElev, ok := elevators[packet.Elevator.Id]
+    //     if ok {
+    //         mergeRequests(packet, currentElev)
+    //     }
+    //     return false
+    } else {
+        updateSequenceNumber(packet.Elevator.Id, packet.SequenceNumber)
+        return false
+    }
+
+}
+
+func mergeRequests(packet *ElevatorPacket, localElevator elevator.Elevator) {
+    for f := localElevator.MinFloor; f <= localElevator.MaxFloor; f++ {
+        packet.Elevator.Requests.Up[f] = localElevator.Requests.Up[f] || packet.Elevator.Requests.Up[f]
+        packet.Elevator.Requests.Down[f] = localElevator.Requests.Down[f] || packet.Elevator.Requests.Down[f]
+        packet.Elevator.Requests.ToFloor[f] = localElevator.Requests.ToFloor[f] || packet.Elevator.Requests.ToFloor[f]
+    }
+}
+
+func makeElevatorPacket(e elevator.Elevator) ElevatorPacket {
+    sequenceNumbersMutex.Lock()
+    defer sequenceNumbersMutex.Unlock()
+	return ElevatorPacket{
+		SequenceNumber: sequenceNumbers[e.Id],
 		Checksum:       "",
 		Elevator:       e,
 	}
 }
 
-func computeChecksum(packet elevatorPacket) string {
+func computeChecksum(packet ElevatorPacket) string {
 	//packetBytes := []byte(fmt.Sprint("%v", packet.Elevator) + fmt.Sprintf("%d"))
 	return ""
 }

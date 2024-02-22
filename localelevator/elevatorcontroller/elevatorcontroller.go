@@ -2,8 +2,8 @@ package elevatorcontroller
 
 import (
 	"Driver-go/elevio"
-	"localelevator/elevator"
-	"localelevator/requests"
+	"sanntid/localelevator/elevator"
+	"sanntid/localelevator/requests"
 	"log"
 	"os"
 	"os/exec"
@@ -45,15 +45,18 @@ func ListenAndServe(
 	go watchdog.Start(floorWatchdog)
 	go watchdog.Start(doorWatchdog)
 
-	ticker := time.NewTicker(time.Millisecond * 500)
+	ticker := time.NewTicker(time.Millisecond * 1000)
 	elevator.PollElevatorIO(buttonCh, floorSensCh, stopButtonCh, obstructionCh)
 	for {
 		select {
 		case req := <-requestUpdateCh:
-			e.Requests = req
-            elevator.SetLights(e)
-			handleRequestUpdate(&e, onDoorsClosingCh, obstructionCh)
-			elevatorUpdateCh <- e
+            if hasNewRequest(e, req) {
+                e.Requests = req
+                elevator.SetCabLights(e)
+                handleRequestUpdate(&e, onDoorsClosingCh, obstructionCh)
+                elevatorUpdateCh <- e
+            }
+
 
 		case event := <-buttonCh:
 			orderChan <- elevator.Order{
@@ -71,7 +74,7 @@ func ListenAndServe(
 		case <-onDoorsClosingCh:
 			stopedAtFloor <- e.CurrentFloor
 			e.Requests = <-requestUpdateCh
-            elevator.SetLights(e)
+            elevator.SetCabLights(e)
 			handleDoorsClosing(&e, onDoorsClosingCh, obstructionCh)
 			elevatorUpdateCh <- e
 
@@ -90,6 +93,19 @@ func ListenAndServe(
 			}
 		}
 	}
+}
+
+func hasNewRequest(e elevator.Elevator, new elevator.Requests) bool {
+    newRequest := false
+	for f := e.MinFloor; f <= e.MaxFloor; f++ {
+		if e.Requests.Up[f] != new.Up[f] ||
+			e.Requests.Down[f] != new.Down[f] ||
+			e.Requests.ToFloor[f] != new.ToFloor[f] {
+                newRequest = true
+                break
+            }
+        }
+        return newRequest
 }
 
 func handleRequestUpdate(e *elevator.Elevator,

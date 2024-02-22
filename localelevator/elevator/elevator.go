@@ -36,10 +36,28 @@ type Elevator struct {
     Id           string
 }
 
-func Init() int {
+
+// TODO: remove hardcoded values
+func New(Id string) Elevator {
+    return Elevator{
+        Dir:   elevio.MD_Stop,
+		State: IDLE,
+		Requests: Requests{
+			Up:      make([]bool, 4),
+			Down:    make([]bool, 4),
+			ToFloor: make([]bool, 4),
+		},
+		MaxFloor:     3,
+		MinFloor:     0,
+		CurrentFloor: 0,
+        Id: Id,
+	}
+}
+
+func Init(port int) int {
 	// Init elevator
 	// Run elevator to known floor
-	elevio.Init("localhost:15657", 4)
+	elevio.Init(fmt.Sprintf("localhost:%d", port), 4)
 	floor := elevio.GetFloor()
 	if floor == -1 {
 		floorSensCh := make(chan int)
@@ -112,7 +130,6 @@ func get_elevator_dir(floor int, toFloor int) elevio.MotorDirection {
 }
 
 func OpenDoors(doorsOpenCh chan bool, obstructionCh chan bool) {
-    fmt.Println("doors")
     ticker := time.NewTicker(500*time.Millisecond)
     counter := 0
 	elevio.SetDoorOpenLamp(true)
@@ -135,7 +152,23 @@ func OpenDoors(doorsOpenCh chan bool, obstructionCh chan bool) {
     }
 }
 
-func SetLights(e Elevator) {
+func SetHallLights(e Elevator) {
+    for f := e.MinFloor; f <= e.MaxFloor; f++ {
+		elevio.SetButtonLamp(elevio.BT_HallUp, f, e.Requests.Up[f])
+		elevio.SetButtonLamp(elevio.BT_HallDown, f, e.Requests.Down[f])
+    }
+}
+
+func SetCabLights(e Elevator) {
+    for f := e.MinFloor; f <= e.MaxFloor; f++ {
+		elevio.SetButtonLamp(elevio.BT_HallUp, f, e.Requests.Up[f])
+		elevio.SetButtonLamp(elevio.BT_HallDown, f, e.Requests.Down[f])
+    }
+}
+
+
+
+func SetAllLights(e Elevator) {
 	for f := e.MinFloor; f <= e.MaxFloor; f++ {
 		elevio.SetButtonLamp(elevio.BT_HallUp, f, e.Requests.Up[f])
 		elevio.SetButtonLamp(elevio.BT_HallDown, f, e.Requests.Down[f])
@@ -145,6 +178,7 @@ func SetLights(e Elevator) {
 
 func PrintElevator(e Elevator) {
 	fmt.Printf("Current floor: %d\n", e.CurrentFloor)
+    fmt.Printf("ID: %s\n", e.Id)
 	printState(e)
 	printDir(e.Dir)
 	printRequests(e)
