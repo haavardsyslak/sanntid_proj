@@ -2,6 +2,7 @@ package fakeorderassigner
 
 import (
 	"Driver-go/elevio"
+	"fmt"
 	// "fmt"
 	"math/rand"
 	"sanntid/localelevator/elevator"
@@ -12,20 +13,23 @@ import (
 var thisId string
 
 func HandleOrders(thisElevator elevator.Elevator,
-	elevatorToNetwork chan elevator.Elevator,
-	elevatorFromNetwork chan elevator.Elevator) {
-
+	elevatorToNetwork chan <-  elevator.Elevator,
+	elevatorFromNetwork <- chan elevator.Elevator,
+	elevatorLostCh <-chan string,
+) {
 	elevatorStuckCh := make(chan struct{})
 	stopedAtFloor := make(chan int)
-	orderCh := make(chan elevator.Order)
-	requestUpdateCh := make(chan elevator.Requests)
+	orderCh := make(chan elevator.Order, 1000)
+	requestUpdateCh := make(chan elevator.Requests, 1000)
 	elevators := make(map[string]elevator.Elevator)
 
 	thisId = thisElevator.Id
-    elev := elevator.New(thisElevator.Id)
-    elev.CurrentFloor = thisElevator.CurrentFloor
-	elevators[thisElevator.Id] = elev
+	elevators[thisElevator.Id] = thisElevator
 	elevatorUpdateCh := make(chan elevator.Elevator)
+
+    fmt.Println("Handling orders")
+    elevatorToNetwork <- thisElevator
+    fmt.Println("order handled")
 
 	go elevatorcontroller.ListenAndServe(thisElevator,
 		requestUpdateCh,
@@ -39,29 +43,62 @@ func HandleOrders(thisElevator elevator.Elevator,
 		select {
 		case floor := <-stopedAtFloor:
 			e := elevators[thisId]
-            e.CurrentFloor = floor
+			e.CurrentFloor = floor
 			e.Requests = requests.ClearAtCurrentFloor(floor, e)
 			elevators[thisId] = e
 			elevatorToNetwork <- elevators[thisId]
+
 		case order := <-orderCh:
 			e := assignOrder(elevators, order)
-			// requestUpdateCh <- updateRequests(order, elev.Requests)
 			elevatorToNetwork <- e
+
 		case <-elevatorStuckCh:
+
 		case e := <-elevatorUpdateCh:
 			elevators[e.Id] = e
 			elevatorToNetwork <- e
+
 		case e := <-elevatorFromNetwork:
-            // fmt.Printf("Address of elevators[thisId]: %p\n", &elevators[thisId])
-            // fmt.Printf("Address of e: %p\n", &e)
 			if e.Id == thisId {
-                requestUpdateCh <- e.Requests
+				requestUpdateCh <- e.Requests
 			}
 			elevators[e.Id] = e
+            e.Requests = mergeAllHallReqs(elevators)
+            elevator.SetHallLights(e)
+
+		case lostId := <-elevatorLostCh:
+			lostElevator := elevators[lostId]
+			delete(elevators, lostId)
+			reassignOrders(lostElevator, elevators, elevatorToNetwork)
 		}
 	}
 }
 
+func reassignOrders(e elevator.Elevator,
+	elevators map[string]elevator.Elevator,
+	elevatorToNetwork chan <- elevator.Elevator,
+) {
+	for f, req := range e.Requests.Up {
+		if req {
+			elevatorToNetwork <- assignOrder(elevators, elevator.Order{
+				Type:    elevio.BT_HallUp,
+				AtFloor: f,
+			})
+            e.Requests.Up[f] = false
+            elevatorToNetwork <- e
+		}
+	}
+	for f, req := range e.Requests.Down {
+		if req {
+			elevatorToNetwork <- assignOrder(elevators, elevator.Order{
+				Type:    elevio.BT_HallDown,
+				AtFloor: f,
+			})
+            e.Requests.Down[f] = false
+            elevatorToNetwork <- e
+		}
+	}
+}
 
 func assignOrder(elevators map[string]elevator.Elevator, order elevator.Order) elevator.Elevator {
 	switch order.Type {
@@ -88,8 +125,6 @@ func getRandomElev(elevators map[string]elevator.Elevator) elevator.Elevator {
 	return elevators[randomKey]
 }
 
-func Dummy() {
-}
 
 func updateRequests(order elevator.Order, requests elevator.Requests) elevator.Requests {
 	switch order.Type {
@@ -103,3 +138,26 @@ func updateRequests(order elevator.Order, requests elevator.Requests) elevator.R
 	return requests
 }
 
+
+func mergeAllHallReqs(elevators map[string]elevator.Elevator) elevator.Requests {
+    reqs := elevator.Requests {
+        Up: make([]bool, elevators[thisId].MaxFloor + 1 - elevators[thisId].MinFloor),
+        Down: make([]bool, elevators[thisId].MaxFloor + 1 - elevators[thisId].MinFloor),
+        ToFloor: make([]bool, elevators[thisId].MaxFloor + 1 - elevators[thisId].MinFloor),
+    }
+
+    for _, e := range elevators {
+        for f := e.MinFloor; f <= e.MaxFloor; f++ {
+            if e.Requests.Up[f] {
+                reqs.Up[f] = true
+            }
+            if e.Requests.Down[f] {
+                reqs.Down[f] = true
+            }
+            if e.Requests.ToFloor[f] {
+                reqs.ToFloor[f] = true
+            }
+        }
+    }
+    return reqs
+}
