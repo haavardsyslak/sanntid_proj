@@ -4,11 +4,12 @@ import (
 	"Driver-go/elevio"
 	"sanntid/localelevator/elevator"
 	"sanntid/localelevator/requests"
-	"log"
+	// "log"
 	"os"
 	"os/exec"
 	"sanntid/watchdog"
 	"time"
+    "fmt"
 )
 
 func ListenAndServe(
@@ -31,7 +32,7 @@ func ListenAndServe(
 		elevatorStuckCh,
 		func() {
 			elevator.Stop()
-			log.Fatal("floor watchdog")
+			fmt.Println("floor watchdog")
 		})
 
 	doorWatchdog := watchdog.New(time.Second*30,
@@ -39,9 +40,11 @@ func ListenAndServe(
 		elevatorStuckCh,
 		func() {
 			elevator.Stop()
-			log.Fatal("Door watchdog")
+			panic("Door watchdog")
 		})
 
+    setInitialState(e, onDoorsClosingCh, obstructionCh)
+    
 	go watchdog.Start(floorWatchdog)
 	go watchdog.Start(doorWatchdog)
 
@@ -59,10 +62,12 @@ func ListenAndServe(
 
 
 		case event := <-buttonCh:
+            fmt.Println("Sending Order..")
 			orderChan <- elevator.Order{
 				Type:    event.Button,
 				AtFloor: event.Floor,
 			}
+            fmt.Println("Order sendt")
 
 		case event := <-floorSensCh:
 			watchdog.Feed(floorWatchdog)
@@ -72,17 +77,22 @@ func ListenAndServe(
 			}
 
 		case <-onDoorsClosingCh:
+            fmt.Println("Doors closed")
 			stopedAtFloor <- e.CurrentFloor
+            fmt.Println("Signaled stoped")
 			e.Requests = <-requestUpdateCh
+            fmt.Println("Recieved Req")
             elevator.SetCabLights(e)
 			handleDoorsClosing(&e, onDoorsClosingCh, obstructionCh)
+            fmt.Println("Updating...")
 			elevatorUpdateCh <- e
+            fmt.Println("Updated...")
 
 		case <-ticker.C:
 			if printEnabled {
 				cmd := exec.Command("clear")
 				cmd.Stdout = os.Stdout
-				cmd.Run()
+				// cmd.Run()
 				elevator.PrintElevator(e)
 			}
 			if e.State != elevator.MOVING {
@@ -143,6 +153,7 @@ func handleFloorArrival(floor int,
 	e.CurrentFloor = floor
     elevio.SetFloorIndicator(floor)
 	if e.State == elevator.IDLE || e.State == elevator.DOOR_OPEN {
+        elevator.Stop()
 		return false
 	}
     if requests.ShouldStop(*e) {
@@ -159,4 +170,14 @@ func handleFloorArrival(floor int,
 	// 	elevio.SetMotorDirection(e.Dir)
 	// }
 	return false
+}
+
+
+func setInitialState(e elevator.Elevator, onDoorClosingCh chan bool, obstructionCh chan bool) {
+    elevator.PrintElevator(e)
+    elevio.SetMotorDirection(e.Dir) 
+    elevator.SetCabLights(e)
+    if e.State == elevator.DOOR_OPEN {
+        go elevator.OpenDoors(onDoorClosingCh, obstructionCh)
+    }
 }

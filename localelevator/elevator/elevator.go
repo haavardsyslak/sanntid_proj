@@ -54,17 +54,20 @@ func New(Id string) Elevator {
 	}
 }
 
-func Init(port int) int {
-	// Init elevator
-	// Run elevator to known floor
-	elevio.Init(fmt.Sprintf("localhost:%d", port), 4)
-	floor := elevio.GetFloor()
-	if floor == -1 {
-		floorSensCh := make(chan int)
-		go elevio.PollFloorSensor(floorSensCh)
-		return goToKnownFloor(floorSensCh)
-	}
-	return floor
+func Init(port int, fromNetwork bool) int {
+    // Init elevator
+    // Run elevator to known floor
+    elevio.Init(fmt.Sprintf("localhost:%d", port), 4)
+    if !fromNetwork {
+        floor := elevio.GetFloor()
+        if floor == -1 {
+            floorSensCh := make(chan int)
+            go elevio.PollFloorSensor(floorSensCh)
+            return goToKnownFloor(floorSensCh)
+        }
+        return floor
+    }
+    return -1
 }
 
 func goToKnownFloor(floorSenseCh chan int) int {
@@ -145,7 +148,9 @@ func OpenDoors(doorsOpenCh chan bool, obstructionCh chan bool) {
             counter += 1
             if counter >= 6 {
                 elevio.SetDoorOpenLamp(false)
+                fmt.Println("Signaling doors")
                 doorsOpenCh <- true
+                fmt.Println("Doors signaled")
                 return
             }
         }
@@ -161,8 +166,7 @@ func SetHallLights(e Elevator) {
 
 func SetCabLights(e Elevator) {
     for f := e.MinFloor; f <= e.MaxFloor; f++ {
-		elevio.SetButtonLamp(elevio.BT_HallUp, f, e.Requests.Up[f])
-		elevio.SetButtonLamp(elevio.BT_HallDown, f, e.Requests.Down[f])
+        elevio.SetButtonLamp(elevio.BT_Cab, f, e.Requests.ToFloor[f])
     }
 }
 
