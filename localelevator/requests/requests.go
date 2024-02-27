@@ -2,7 +2,7 @@ package requests
 
 import (
 	"Driver-go/elevio"
-	"localelevator/elevator"
+	"sanntid/localelevator/elevator"
 )
 
 func UpdateRequests(event elevio.ButtonEvent, requests *elevator.Requests) {
@@ -84,7 +84,7 @@ func ClearRequest(floor int, e *elevator.Elevator, reqType elevio.ButtonType) {
 
 func ShouldStop(e elevator.Elevator) (bool) {
     switch(e.Dir){
-    case elevio.MD_Down:
+    case elevio.MD_Down: 
         return e.Requests.Down[e.CurrentFloor] ||
         e.Requests.ToFloor[e.CurrentFloor]      ||
         !HasRequestBelow(e);
@@ -106,7 +106,7 @@ func GetNewDirectionAndState(e elevator.Elevator) (elevio.MotorDirection, elevat
 		if HasRequestAbove(e) {
 			return elevio.MD_Up, elevator.MOVING
         } else if HasRequestHere(e) {
-			return elevio.MD_Down, elevator.DOOR_OPEN
+			return elevio.MD_Stop, elevator.DOOR_OPEN
 		} else if HasRequestBelow(e) {
 			return elevio.MD_Down, elevator.MOVING
 		} else {
@@ -116,7 +116,7 @@ func GetNewDirectionAndState(e elevator.Elevator) (elevio.MotorDirection, elevat
 		 if HasRequestBelow(e) {
 			return elevio.MD_Down, elevator.MOVING
         } else if HasRequestHere(e) {
-			return elevio.MD_Up, elevator.DOOR_OPEN
+			return elevio.MD_Stop, elevator.DOOR_OPEN
 		} else if HasRequestAbove(e) {
 			return elevio.MD_Up, elevator.MOVING
 		} else {
@@ -135,4 +135,26 @@ func GetNewDirectionAndState(e elevator.Elevator) (elevio.MotorDirection, elevat
 	default:
 		return elevio.MD_Stop, elevator.IDLE
 	}
+}
+
+
+func ClearAtCurrentFloor(floor int, e elevator.Elevator) elevator.Requests {
+    e.Requests.ToFloor[floor] = false
+    switch e.Dir {
+    case elevio.MD_Up:
+        if !HasRequestAbove(e) && !e.Requests.Up[floor] {
+            e.Requests.Down[floor] = false
+        }
+        e.Requests.Up[floor] = false
+    case elevio.MD_Down:
+        if !HasRequestBelow(e) && !e.Requests.Down[floor] {
+
+            e.Requests.Up[floor] = false
+        }
+        e.Requests.Down[floor] = false
+    default:
+        e.Requests.Up[floor] = false
+        e.Requests.Down[floor] = false
+    }
+    return e.Requests
 }

@@ -2,8 +2,8 @@ package main
 
 import (
 	"Driver-go/elevio"
-	"localelevator/elevator"
-	"localelevator/elevatorcontroller"
+	"sanntid/localelevator/elevator"
+	"sanntid/localelevator/elevatorcontroller"
 )
 
 func main() {

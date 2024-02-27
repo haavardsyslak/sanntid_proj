@@ -2,13 +2,14 @@ package elevatorcontroller
 
 import (
 	"Driver-go/elevio"
-	"localelevator/elevator"
-	"localelevator/requests"
-	"log"
+	"sanntid/localelevator/elevator"
+	"sanntid/localelevator/requests"
+	// "log"
 	"os"
 	"os/exec"
 	"sanntid/watchdog"
 	"time"
+    // "fmt"
 )
 
 func ListenAndServe(
@@ -31,7 +32,7 @@ func ListenAndServe(
 		elevatorStuckCh,
 		func() {
 			elevator.Stop()
-			log.Fatal("floor watchdog")
+			panic("floor watchdog")
 		})
 
 	doorWatchdog := watchdog.New(time.Second*30,
@@ -39,21 +40,26 @@ func ListenAndServe(
 		elevatorStuckCh,
 		func() {
 			elevator.Stop()
-			log.Fatal("Door watchdog")
+			panic("Door watchdog")
 		})
 
+    setInitialState(e, onDoorsClosingCh, obstructionCh)
+    
 	go watchdog.Start(floorWatchdog)
 	go watchdog.Start(doorWatchdog)
 
-	ticker := time.NewTicker(time.Millisecond * 500)
+	ticker := time.NewTicker(time.Millisecond * 1000)
 	elevator.PollElevatorIO(buttonCh, floorSensCh, stopButtonCh, obstructionCh)
 	for {
 		select {
 		case req := <-requestUpdateCh:
-			e.Requests = req
-            elevator.SetLights(e)
-			handleRequestUpdate(&e, onDoorsClosingCh, obstructionCh)
-			elevatorUpdateCh <- e
+            if hasNewRequest(e, req) {
+                e.Requests = req
+                elevator.SetCabLights(e)
+                handleRequestUpdate(&e, onDoorsClosingCh, obstructionCh)
+                elevatorUpdateCh <- e
+            }
+
 
 		case event := <-buttonCh:
 			orderChan <- elevator.Order{
@@ -71,7 +77,7 @@ func ListenAndServe(
 		case <-onDoorsClosingCh:
 			stopedAtFloor <- e.CurrentFloor
 			e.Requests = <-requestUpdateCh
-            elevator.SetLights(e)
+            elevator.SetCabLights(e)
 			handleDoorsClosing(&e, onDoorsClosingCh, obstructionCh)
 			elevatorUpdateCh <- e
 
@@ -90,6 +96,19 @@ func ListenAndServe(
 			}
 		}
 	}
+}
+
+func hasNewRequest(e elevator.Elevator, new elevator.Requests) bool {
+    newRequest := false
+	for f := e.MinFloor; f <= e.MaxFloor; f++ {
+		if e.Requests.Up[f] != new.Up[f] ||
+			e.Requests.Down[f] != new.Down[f] ||
+			e.Requests.ToFloor[f] != new.ToFloor[f] {
+                newRequest = true
+                break
+            }
+        }
+        return newRequest
 }
 
 func handleRequestUpdate(e *elevator.Elevator,
@@ -127,6 +146,7 @@ func handleFloorArrival(floor int,
 	e.CurrentFloor = floor
     elevio.SetFloorIndicator(floor)
 	if e.State == elevator.IDLE || e.State == elevator.DOOR_OPEN {
+        elevator.Stop()
 		return false
 	}
     if requests.ShouldStop(*e) {
@@ -143,4 +163,14 @@ func handleFloorArrival(floor int,
 	// 	elevio.SetMotorDirection(e.Dir)
 	// }
 	return false
+}
+
+
+func setInitialState(e elevator.Elevator, onDoorClosingCh chan bool, obstructionCh chan bool) {
+    elevator.PrintElevator(e)
+    elevio.SetMotorDirection(e.Dir) 
+    elevator.SetCabLights(e)
+    if e.State == elevator.DOOR_OPEN {
+        go elevator.OpenDoors(onDoorClosingCh, obstructionCh)
+    }
 }
