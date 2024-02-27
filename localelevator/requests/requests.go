@@ -3,17 +3,21 @@ package requests
 import (
 	"Driver-go/elevio"
 	"sanntid/localelevator/elevator"
+    "fmt"
 )
 
-func UpdateRequests(event elevio.ButtonEvent, requests *elevator.Requests) {
-	switch event.Button {
-	case elevio.BT_Cab:
-		requests.ToFloor[event.Floor] = true
+func UpdateRequests(order elevator.Order, requests elevator.Requests) elevator.Requests {
+    fmt.Println(requests)
+	switch order.Type {
 	case elevio.BT_HallUp:
-		requests.Up[event.Floor] = true
+		requests.Up[order.AtFloor] = true
 	case elevio.BT_HallDown:
-		requests.Down[event.Floor] = true
+		requests.Down[order.AtFloor] = true
+	case elevio.BT_Cab:
+		requests.ToFloor[order.AtFloor] = true
 	}
+    fmt.Println(requests)
+	return requests
 }
 
 func HasRequestBelow(elevator elevator.Elevator) bool {
@@ -44,30 +48,29 @@ func HasRequestHere(elevator elevator.Elevator) bool {
 		elevator.Requests.ToFloor[elevator.CurrentFloor])
 }
 
-// func HasRequestHere(floor int, elevator elevator.Elevator) (bool) {
-//     switch elevator.Dir {
-//     case elevio.MD_Up:
-//         if floor == elevator.MaxFloor {
-//             return elevator.Requests.Up[floor] ||
-//             elevator.Requests.ToFloor[floor] ||
-//             elevator.Requests.Down[floor]
-//         } else {
-//             return (elevator.Requests.Up[floor] || elevator.Requests.ToFloor[floor])
-//         }
-//     case elevio.MD_Down:
-//         if floor == elevator.MinFloor {
-//             return elevator.Requests.Up[floor] ||
-//             elevator.Requests.ToFloor[floor] ||
-//             elevator.Requests.Down[floor]
-//         } else {
-//             return (elevator.Requests.Up[floor] || elevator.Requests.ToFloor[floor])
-//         }
-//     default:
-//         return (elevator.Requests.Down[floor] ||
-//         elevator.Requests.ToFloor[floor] ||
-//         elevator.Requests.Up[floor])
-//     }
-// }
+func SimClearRequest(e elevator.Elevator) elevator.Elevator {
+    floor := e.CurrentFloor
+	switch e.Dir {
+	case elevio.MD_Up:
+		e.Requests.Up[floor] = false
+		e.Requests.ToFloor[floor] = false
+		if floor == e.MaxFloor {
+			e.Requests.Down[floor] = false
+		}
+	case elevio.MD_Down:
+		e.Requests.Down[floor] = false
+		e.Requests.ToFloor[floor] = false
+		if floor == e.MinFloor {
+			e.Requests.Up[floor] = false
+		}
+	default:
+		e.Requests.Down[floor] = false
+		e.Requests.ToFloor[floor] = false
+		e.Requests.Up[floor] = false
+	}
+	return e
+}
+
 
 func ClearRequest(floor int, e *elevator.Elevator, reqType elevio.ButtonType) {
 	switch reqType {

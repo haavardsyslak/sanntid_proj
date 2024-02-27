@@ -230,3 +230,26 @@ func printDir(dir elevio.MotorDirection) {
 		fmt.Println("Dir: Down")
 	}
 }
+
+
+func CopyElevator(e Elevator) Elevator {
+    requests := Requests{
+        Up:      make([]bool, 4),
+        Down:    make([]bool, 4),
+        ToFloor: make([]bool, 4),
+    }
+    for f := e.MinFloor; f <= e.MaxFloor; f++ {
+        requests.Up[f] = e.Requests.Up[f]
+        requests.Down[f] = e.Requests.Down[f]
+        requests.ToFloor[f] = e.Requests.ToFloor[f]
+    }
+    return Elevator{
+        Dir:   e.Dir,
+		State: e.State,
+		Requests: requests,
+		MaxFloor:     e.MaxFloor,
+		MinFloor:     e.MinFloor,
+		CurrentFloor: e.CurrentFloor,
+        Id: e.Id,
+	}
+}

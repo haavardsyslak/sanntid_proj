@@ -3,14 +3,85 @@ package request_assigner
 import (
 	//"fmt"
 	"Driver-go/elevio"
-	"localelevator/elevator"
-	"localelevator/requests"
+	"sanntid/localelevator/elevator"
+	"sanntid/localelevator/requests"
+    "sanntid/localelevator/elevatorcontroller"
+    // "fmt"
 )
 
 const (
 	TravelTime   = 1.7 // Time it takes for an elevator to travel from one floor to another
 	DoorOpenTime = 3
 )
+
+var thisId string
+
+func HandleOrders(thisElevator elevator.Elevator,
+	elevatorToNetwork chan <-  elevator.Elevator,
+	elevatorFromNetwork <- chan elevator.Elevator,
+	elevatorLostCh <-chan string,
+) {
+	elevatorStuckCh := make(chan struct{})
+	stopedAtFloor := make(chan int)
+	orderCh := make(chan elevator.Order, 1000)
+	requestUpdateCh := make(chan elevator.Requests, 1000)
+	elevators := make(map[string]elevator.Elevator)
+
+	thisId = thisElevator.Id
+	elevators[thisElevator.Id] = thisElevator
+	elevatorUpdateCh := make(chan elevator.Elevator)
+
+    elevatorToNetwork <- thisElevator
+
+	go elevatorcontroller.ListenAndServe(thisElevator,
+		requestUpdateCh,
+		elevatorStuckCh,
+		stopedAtFloor,
+		orderCh,
+		elevatorUpdateCh,
+		false)
+
+	for {
+		select {
+		case floor := <-stopedAtFloor:
+			e := elevators[thisId]
+			e.CurrentFloor = floor
+			e.Requests = requests.ClearAtCurrentFloor(floor, e)
+			elevators[thisId] = e
+			elevatorToNetwork <- elevators[thisId]
+
+		case order := <-orderCh:
+			e := AssignRequest(elevators, order)
+			elevatorToNetwork <- e
+
+		case <-elevatorStuckCh:
+
+		case e := <-elevatorUpdateCh:
+			elevators[e.Id] = e
+			elevatorToNetwork <- e
+
+		case e := <-elevatorFromNetwork:
+			if e.Id == thisId {
+				requestUpdateCh <- e.Requests
+			}
+			elevators[e.Id] = e
+            e.Requests = mergeAllHallReqs(elevators)
+            elevator.SetHallLights(e)
+
+		case lostId := <-elevatorLostCh:
+			lostElevator := elevators[lostId]
+			delete(elevators, lostId)
+			reassignOrders(lostElevator, elevators, elevatorToNetwork)
+		}
+	}
+}
+
+func reassignOrders(lostElevator elevator.Elevator, 
+elevators map[string]elevator.Elevator,
+elevatorToNetwork chan <- elevator.Elevator) {
+
+}
+
 
 // Simulates execution of elevator and returns a cost - elevator with lowest cost should serve the request
 func TimeToIdle(e_sim elevator.Elevator) float32 {
@@ -19,7 +90,7 @@ func TimeToIdle(e_sim elevator.Elevator) float32 {
 
 	switch e.State {
 	case elevator.IDLE:
-		e.Dir = requests.SimUpdateDirection(e).Dir
+		e.Dir, _ = requests.GetNewDirectionAndState(e)
 		if e.Dir == elevio.MD_Stop {
 			duration = 0
 		}
@@ -31,10 +102,11 @@ func TimeToIdle(e_sim elevator.Elevator) float32 {
 	}
 
 	for {
-		if requests.SimShouldStop(e) {
-			e = requests.SimClearRequest(e.CurrentFloor, e)
+		if requests.ShouldStop(e) {
+			e.Requests = requests.ClearAtCurrentFloor(e.CurrentFloor, e)
+            // e = requests.SimClearRequest(e_sim)
 			duration += DoorOpenTime
-			e.Dir = requests.SimUpdateDirection(e).Dir
+			e.Dir, _ = requests.GetNewDirectionAndState(e)
 			if e.Dir == elevio.MD_Stop {
 				return duration
 			}
@@ -49,23 +121,52 @@ func TimeToIdle(e_sim elevator.Elevator) float32 {
 // sånn at HasRequest funksjonene funker?
 // "Remember to copy the Elevator data and add the new unassigned request to that copy before calling timeToIdle..."
 
-func AssignRequest(elevators map[int]elevator.Elevator, request elevator.Order) elevator.Elevator {
+func AssignRequest(elevators map[string]elevator.Elevator,
+    order elevator.Order) elevator.Elevator {
+    if order.Type == elevio.BT_Cab {
+        e := elevators[thisId]
+        e.Requests = requests.UpdateRequests(order, e.Requests)
+        return e
+    }
 	var currentDuration float32 = 0
-	var bestDuration float32
-	var bestElevator int
-	var e_sim elevator.Elevator
-	for i := 0; i < len(elevators); i++ {
-		e_sim = elevators[i] // copying the elevator
-		buttonEvent := elevio.ButtonEvent{
-			Floor:  request.AtFloor,
-			Button: request.Type,
-		}
-		requests.UpdateRequests(buttonEvent, &e_sim.Requests)
-		currentDuration = TimeToIdle(e_sim)
+	var bestDuration float32 = 1000
+	var bestElevator string
+    for id := range elevators {
+        e := elevator.CopyElevator(elevators[id])
+		e.Requests = requests.UpdateRequests(order, e.Requests)
+		currentDuration = TimeToIdle(e)
 		if currentDuration < bestDuration {
 			bestDuration = currentDuration
-			bestElevator = i
+			bestElevator = id
 		}
 	}
-	return elevators[bestElevator]
+    e := elevators[bestElevator]
+    e.Requests = requests.UpdateRequests(order, e.Requests)
+	return e
 }
+
+func mergeAllHallReqs(elevators map[string]elevator.Elevator) elevator.Requests {
+
+    reqs := elevator.Requests {
+        Up: make([]bool, elevators[thisId].MaxFloor + 1 - elevators[thisId].MinFloor),
+        Down: make([]bool, elevators[thisId].MaxFloor + 1 - elevators[thisId].MinFloor),
+        ToFloor: make([]bool, elevators[thisId].MaxFloor + 1 - elevators[thisId].MinFloor),
+    }
+
+    for _, e := range elevators {
+        for f := e.MinFloor; f <= e.MaxFloor; f++ {
+            if e.Requests.Up[f] {
+                reqs.Up[f] = true
+            }
+            if e.Requests.Down[f] {
+                reqs.Down[f] = true
+            }
+            if e.Requests.ToFloor[f] {
+                reqs.ToFloor[f] = true
+            }
+        }
+    }
+    return reqs
+}
+
+

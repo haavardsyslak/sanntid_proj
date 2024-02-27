@@ -11,7 +11,8 @@ import (
 	"Network-go/network/peers"
 	"sanntid/conn"
 	"sanntid/localelevator/elevator"
-	"sanntid/fakeorderassigner"
+	//"sanntid/fakeorderassigner"
+    "sanntid/request_assigner"
 )
 
 func main() {
@@ -70,8 +71,10 @@ func main() {
         elevator.Init(port, true)
         elevators[id] = networkElevator
     }
-     
-    go fakeorderassigner.HandleOrders(elevators[id],
+    
+    fmt.Println(elevators[id])
+
+    go request_assigner.HandleOrders(elevators[id],
         elevatorToNetworkCh,
         elevatorFromNetworkCh,
 		elevatorLostCh,
