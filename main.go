@@ -1,25 +1,17 @@
 package main
 
 import (
-	"Network-go/network/bcast"
-	"Network-go/network/localip"
-	"Network-go/network/peers"
 	"errors"
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
 	"time"
-
-	// "os/exec"
+	"Network-go/network/bcast"
+	"Network-go/network/localip"
+	"Network-go/network/peers"
 	"sanntid/conn"
 	"sanntid/localelevator/elevator"
-
-	// "time"
-	"os/signal"
-	"runtime"
 	"sanntid/fakeorderassigner"
-	"syscall"
 )
 
 func main() {
@@ -39,18 +31,6 @@ func main() {
 		}
 		id = fmt.Sprintf("peers-%s-%d", localIP, os.Getpid())
 	}
-    // Create a channel to receive OS signals
-    sigCh := make(chan os.Signal, 1)
-    // Register the channel to receive SIGINT signals
-    signal.Notify(sigCh, syscall.SIGINT)
-
-    // Start a goroutine to capture SIGINT signals
-    go func() {
-        <-sigCh // Block until a SIGINT signal is received
-        fmt.Println("Received SIGINT signal. Printing stack trace...")
-        printStackTraces() // Print stack traces of all goroutines
-        os.Exit(1) // Exit the program
-    }()
 
     fmt.Println("Id: ", id)
 
@@ -110,39 +90,6 @@ func main() {
         }
     }
 
-}
-
-func InsertRandom(e elevator.Elevator) elevator.Elevator {
-	e.Requests.Up = getRandomRequest(e.Requests.Up)
-	e.Requests.Down= getRandomRequest(e.Requests.Down)
-	e.Requests.ToFloor = getRandomRequest(e.Requests.ToFloor)
-	return e
-}
-
-func getRandomRequest(slice []bool) []bool {
-	// Generate a random boolean value
-	randomValue := randBool()
-
-	// Generate a random index within the bounds of the slice
-	randomIndex := rand.Intn(len(slice))
-
-    slice[randomIndex] = randomValue
-
-    return slice
-}
-
-// randBool generates a random boolean value.
-func randBool() bool {
-	return rand.Intn(2) == 0
-}
-
-func printStackTraces() {
-    // Create a buffer to hold the stack trace
-    buf := make([]byte, 1<<20)
-    // Retrieve the stack trace of all goroutines
-    runtime.Stack(buf, true)
-    // Print the stack trace
-    fmt.Println(string(buf))
 }
 
 func RecoverFromNetwork(id string, 

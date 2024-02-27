@@ -3,7 +3,6 @@ package requests
 import (
 	"Driver-go/elevio"
 	"sanntid/localelevator/elevator"
-    "fmt"
 )
 
 func UpdateRequests(event elevio.ButtonEvent, requests *elevator.Requests) {
@@ -140,9 +139,7 @@ func GetNewDirectionAndState(e elevator.Elevator) (elevio.MotorDirection, elevat
 
 
 func ClearAtCurrentFloor(floor int, e elevator.Elevator) elevator.Requests {
-    fmt.Println(e.Requests.ToFloor, floor)
     e.Requests.ToFloor[floor] = false
-    fmt.Println(e.Requests.ToFloor, floor)
     switch e.Dir {
     case elevio.MD_Up:
         if !HasRequestAbove(e) && !e.Requests.Up[floor] {

@@ -2,7 +2,6 @@ package fakeorderassigner
 
 import (
 	"Driver-go/elevio"
-	"fmt"
 	// "fmt"
 	"math/rand"
 	"sanntid/localelevator/elevator"
@@ -27,9 +26,7 @@ func HandleOrders(thisElevator elevator.Elevator,
 	elevators[thisElevator.Id] = thisElevator
 	elevatorUpdateCh := make(chan elevator.Elevator)
 
-    fmt.Println("Handling orders")
     elevatorToNetwork <- thisElevator
-    fmt.Println("order handled")
 
 	go elevatorcontroller.ListenAndServe(thisElevator,
 		requestUpdateCh,

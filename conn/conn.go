@@ -19,22 +19,12 @@ type ElevatorPacket struct {
 var sequenceNumbers = make(map[string]uint32)
 var sequenceNumbersMutex sync.Mutex
 
-func UpdateElevators(elevatorUpdateCh chan elevator.Elevator) {
-	elevators := make(map[string]elevator.Elevator)
-	for {
-		select {
-		case e := <-elevatorUpdateCh:
-			elevators[e.Id] = e
-		}
-	}
-}
-
 func TransmitRecieve(elevatorUpdateToNetworkCh <-chan elevator.Elevator,
 	elevatorUpdateFromNetworkCh chan<- elevator.Elevator,
 	elevatorTxCh chan<- ElevatorPacket,
 	elevatorRxCh <-chan ElevatorPacket) {
 
-	bcastTimer := time.NewTicker(1 * time.Millisecond)
+	bcastTimer := time.NewTicker(15 * time.Millisecond)
 	elevators := make(map[string]elevator.Elevator)
 	for {
 		select {
@@ -85,16 +75,12 @@ func shouldScrapPacket(packet *ElevatorPacket, elevators map[string]elevator.Ele
 	currentSequenceNumber := sequenceNumbers[packet.Elevator.Id]
 	sequenceNumbersMutex.Unlock()
     if !verifyChecksum(*packet) {
-        
+        return true 
     }
 	if packet.SequenceNumber < currentSequenceNumber {
 		return true
-		// } else if packet.SequenceNumber == currentSequenceNumber {
-		//     currentElev, ok := elevators[packet.Elevator.Id]
-		//     if ok {
-		//         mergeRequests(packet, currentElev)
-		//     }
-		//     return false
+    // TODO:    Do we need to do something if the info is different and 
+    //          and the sequence numbers are the same? 
 	} else {
 		updateSequenceNumber(packet.Elevator.Id, packet.SequenceNumber)
 		return false
@@ -102,25 +88,16 @@ func shouldScrapPacket(packet *ElevatorPacket, elevators map[string]elevator.Ele
 }
 
 
-func mergeRequests(packet *ElevatorPacket, localElevator elevator.Elevator) {
-	for f := localElevator.MinFloor; f <= localElevator.MaxFloor; f++ {
-		packet.Elevator.Requests.Up[f] = localElevator.Requests.Up[f] ||
-			packet.Elevator.Requests.Up[f]
-		packet.Elevator.Requests.Down[f] = localElevator.Requests.Down[f] ||
-			packet.Elevator.Requests.Down[f]
-		packet.Elevator.Requests.ToFloor[f] = localElevator.Requests.ToFloor[f] ||
-			packet.Elevator.Requests.ToFloor[f]
-	}
-}
-
 func makeElevatorPacket(e elevator.Elevator) ElevatorPacket {
 	sequenceNumbersMutex.Lock()
 	defer sequenceNumbersMutex.Unlock()
-	return ElevatorPacket{
+    packet := ElevatorPacket{
 		SequenceNumber: sequenceNumbers[e.Id],
 		Checksum:       "",
 		Elevator:       e,
 	}
+    packet.Checksum = computeChecksum(packet)
+    return packet
 }
 
 func computeChecksum(packet ElevatorPacket) string {

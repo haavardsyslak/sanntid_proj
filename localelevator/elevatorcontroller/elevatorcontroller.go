@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"sanntid/watchdog"
 	"time"
-    "fmt"
+    // "fmt"
 )
 
 func ListenAndServe(
@@ -32,7 +32,7 @@ func ListenAndServe(
 		elevatorStuckCh,
 		func() {
 			elevator.Stop()
-			fmt.Println("floor watchdog")
+			panic("floor watchdog")
 		})
 
 	doorWatchdog := watchdog.New(time.Second*30,
@@ -62,12 +62,10 @@ func ListenAndServe(
 
 
 		case event := <-buttonCh:
-            fmt.Println("Sending Order..")
 			orderChan <- elevator.Order{
 				Type:    event.Button,
 				AtFloor: event.Floor,
 			}
-            fmt.Println("Order sendt")
 
 		case event := <-floorSensCh:
 			watchdog.Feed(floorWatchdog)
@@ -77,22 +75,17 @@ func ListenAndServe(
 			}
 
 		case <-onDoorsClosingCh:
-            fmt.Println("Doors closed")
 			stopedAtFloor <- e.CurrentFloor
-            fmt.Println("Signaled stoped")
 			e.Requests = <-requestUpdateCh
-            fmt.Println("Recieved Req")
             elevator.SetCabLights(e)
 			handleDoorsClosing(&e, onDoorsClosingCh, obstructionCh)
-            fmt.Println("Updating...")
 			elevatorUpdateCh <- e
-            fmt.Println("Updated...")
 
 		case <-ticker.C:
 			if printEnabled {
 				cmd := exec.Command("clear")
 				cmd.Stdout = os.Stdout
-				// cmd.Run()
+				cmd.Run()
 				elevator.PrintElevator(e)
 			}
 			if e.State != elevator.MOVING {
