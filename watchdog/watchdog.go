@@ -2,6 +2,7 @@ package watchdog
 
 import (
 	"time"
+    // "fmt"
 )
 
 type Watchdog struct {
@@ -9,12 +10,12 @@ type Watchdog struct {
 	callback func()
 	feedCh   chan bool
 	ticker   *time.Ticker
-	notifyCh chan struct{}
+	notifyCh chan bool
 }
 
 func New(period time.Duration,
 	feedCh chan bool,
-	notifyCh chan struct{},
+	notifyCh chan bool,
 	callback func(),
 ) *Watchdog {
 	w := Watchdog{
@@ -22,6 +23,7 @@ func New(period time.Duration,
 		callback: callback,
 		feedCh:   feedCh,
 		ticker:   time.NewTicker(period),
+        notifyCh: notifyCh,
 	}
 	w.ticker.Stop()
 	return &w
@@ -42,9 +44,7 @@ func Start(w *Watchdog) {
 		select {
 		case <-w.ticker.C:
 			w.callback()
-            if w.notifyCh != nil {
-                w.notifyCh <- struct{}{}
-            }
+            w.notifyCh <- true
 		case <-w.feedCh:
 			w.ticker.Reset(w.period)
 		}

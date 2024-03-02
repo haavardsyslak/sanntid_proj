@@ -2,20 +2,25 @@ package elevatorcontroller
 
 import (
 	"Driver-go/elevio"
+	// "fmt"
 	"sanntid/localelevator/elevator"
 	"sanntid/localelevator/requests"
+
 	// "log"
 	"os"
 	"os/exec"
-	"sanntid/watchdog"
+	// "sanntid/watchdog"
 	"time"
-    // "fmt"
+	// "fmt"
 )
+
+const doorTimeout time.Duration = 10 * time.Second
+const foorTimeout time.Duration = 5 * time.Second
 
 func ListenAndServe(
 	e elevator.Elevator,
 	requestUpdateCh chan elevator.Requests,
-	elevatorStuckCh chan struct{},
+	elevatorStuckCh chan bool,
 	stopedAtFloor chan int,
 	orderChan chan elevator.Order,
 	elevatorUpdateCh chan elevator.Elevator,
@@ -27,26 +32,30 @@ func ListenAndServe(
 	onDoorsClosingCh := make(chan bool)
 	obstructionCh := make(chan bool)
 
-	floorWatchdog := watchdog.New(time.Second*15,
-		make(chan bool),
-		elevatorStuckCh,
-		func() {
-			elevator.Stop()
-			panic("floor watchdog")
-		})
-
-	doorWatchdog := watchdog.New(time.Second*30,
-		make(chan bool),
-		elevatorStuckCh,
-		func() {
-			elevator.Stop()
-			panic("Door watchdog")
-		})
-
+	// floorWatchdog := watchdog.New(time.Second*5,
+	// 	make(chan bool),
+	// 	elevatorStuckCh,
+	// 	func() {
+	// 		elevator.Stop()
+	// 		fmt.Println("floor watchdog")
+	// 	})
+	//
+	// doorWatchdog := watchdog.New(time.Second*30,
+	// 	make(chan bool),
+	// 	elevatorStuckCh,
+	// 	func() {
+	// 		elevator.Stop()
+	// 		fmt.Println("Door watchdog")
+	// 	})
+	//
     setInitialState(e, onDoorsClosingCh, obstructionCh)
     
-	go watchdog.Start(floorWatchdog)
-	go watchdog.Start(doorWatchdog)
+	// go watchdog.Start(floorWatchdog)
+	// go watchdog.Start(doorWatchdog)
+
+    doorTimer := time.NewTicker(10 * time.Second)
+    floorTimer := time.NewTicker(5 * time.Second)
+
 
 	ticker := time.NewTicker(time.Millisecond * 250)
 	elevator.PollElevatorIO(buttonCh, floorSensCh, stopButtonCh, obstructionCh)
@@ -67,13 +76,16 @@ func ListenAndServe(
 			}
 
 		case event := <-floorSensCh:
-			watchdog.Feed(floorWatchdog)
+			// watchdog.Feed(floorWatchdog)
+            floorTimer.Reset(doorTimeout)
+            elevatorStuckCh <- false
 			hasStopped := handleFloorArrival(event, &e, onDoorsClosingCh, obstructionCh)
 			if hasStopped {
 				stopedAtFloor <- event
 			}
 
 		case <-onDoorsClosingCh:
+            elevatorStuckCh <- false
 			stopedAtFloor <- e.CurrentFloor
 			e.Requests = <-requestUpdateCh
             elevator.SetCabLights(e)
@@ -88,11 +100,17 @@ func ListenAndServe(
 				elevator.PrintElevator(e)
 			}
 			if e.State != elevator.MOVING {
-				watchdog.Feed(floorWatchdog)
+				// watchdog.Feed(floorWatchdog)
+                floorTimer.Reset(foorTimeout)
 			}
 			if e.State != elevator.DOOR_OPEN {
-				watchdog.Feed(doorWatchdog)
+				doorTimer.Reset(doorTimeout)
 			}
+        case <- floorTimer.C:
+            elevatorStuckCh <- true
+        case <- doorTimer.C:
+            elevatorStuckCh <- true
+            
 		}
 	}
 }

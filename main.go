@@ -49,7 +49,7 @@ func main() {
 	go peers.Transmitter(15647, id, peerTxEnable)
 	go peers.Receiver(15647, peerUpdateCh)
 
-	go bcast.Transmitter(16569, elevatorTxCh, peerTxEnable)
+	go bcast.Transmitter(16569, elevatorTxCh)
 	go bcast.Receiver(16569, elevatorRxCh)
 
 	// ticker := time.NewTicker(100 * time.Millisecond)
@@ -78,6 +78,7 @@ func main() {
         elevatorToNetworkCh,
         elevatorFromNetworkCh,
 		peerUpdateCh,
+        peerTxEnable,
     )
     
 
