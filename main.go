@@ -41,9 +41,9 @@ func main() {
 	elevatorRxCh := make(chan conn.ElevatorPacket)
 	elevatorTxCh := make(chan conn.ElevatorPacket)
 	elevatorToNetworkCh := make(chan elevator.Elevator, 100)
-	elevatorFromNetworkCh := make(chan elevator.Elevator)
+	elevatorFromNetworkCh := make(chan elevator.Elevator, 100)
 
-	elevatorLostCh := make(chan string)
+	// elevatorLostCh := make(chan string, 2)
 	// elevatorUpdateCh := make(chan elevator.Elevator)
 
 	go peers.Transmitter(15647, id, peerTxEnable)
@@ -77,22 +77,12 @@ func main() {
     go request_assigner.HandleOrders(elevators[id],
         elevatorToNetworkCh,
         elevatorFromNetworkCh,
-		elevatorLostCh,
+		peerUpdateCh,
     )
     
 
 
-    for {
-        select {
-        case p :=  <- peerUpdateCh:
-            for _, peer := range p.Lost {
-                elevatorLostCh <- peer
-            }
-            fmt.Println("Lost: ", p.Lost)
-            fmt.Println("New: ", p.New)
-        }
-    }
-
+    for {}
 }
 
 func RecoverFromNetwork(id string, 

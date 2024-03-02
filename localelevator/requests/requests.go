@@ -3,11 +3,9 @@ package requests
 import (
 	"Driver-go/elevio"
 	"sanntid/localelevator/elevator"
-    "fmt"
 )
 
 func UpdateRequests(order elevator.Order, requests elevator.Requests) elevator.Requests {
-    fmt.Println(requests)
 	switch order.Type {
 	case elevio.BT_HallUp:
 		requests.Up[order.AtFloor] = true
@@ -16,7 +14,6 @@ func UpdateRequests(order elevator.Order, requests elevator.Requests) elevator.R
 	case elevio.BT_Cab:
 		requests.ToFloor[order.AtFloor] = true
 	}
-    fmt.Println(requests)
 	return requests
 }
 

@@ -48,7 +48,7 @@ func ListenAndServe(
 	go watchdog.Start(floorWatchdog)
 	go watchdog.Start(doorWatchdog)
 
-	ticker := time.NewTicker(time.Millisecond * 1000)
+	ticker := time.NewTicker(time.Millisecond * 250)
 	elevator.PollElevatorIO(buttonCh, floorSensCh, stopButtonCh, obstructionCh)
 	for {
 		select {
@@ -59,7 +59,6 @@ func ListenAndServe(
                 handleRequestUpdate(&e, onDoorsClosingCh, obstructionCh)
                 elevatorUpdateCh <- e
             }
-
 
 		case event := <-buttonCh:
 			orderChan <- elevator.Order{

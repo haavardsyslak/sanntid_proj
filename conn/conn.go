@@ -23,8 +23,8 @@ func TransmitRecieve(elevatorUpdateToNetworkCh <-chan elevator.Elevator,
 	elevatorUpdateFromNetworkCh chan<- elevator.Elevator,
 	elevatorTxCh chan<- ElevatorPacket,
 	elevatorRxCh <-chan ElevatorPacket) {
-
-	bcastTimer := time.NewTicker(15 * time.Millisecond)
+    scrap_cntr := 0
+	bcastTimer := time.NewTicker(100 * time.Millisecond)
 	elevators := make(map[string]elevator.Elevator)
 	for {
 		select {
@@ -40,8 +40,9 @@ func TransmitRecieve(elevatorUpdateToNetworkCh <-chan elevator.Elevator,
 		case packet := <-elevatorRxCh:
 			e, err := handleIncommingPacket(packet, elevators)
 			if err != nil {
-				// fmt.Println(err)
-                elevatorUpdateFromNetworkCh <- elevators[packet.Elevator.Id]
+				fmt.Println(err)
+                scrap_cntr++
+                // elevatorUpdateFromNetworkCh <- elevators[packet.Elevator.Id]
 			} else {
                 //elevator.PrintElevator(packet.Elevator)
                 elevators[packet.Elevator.Id] = packet.Elevator
@@ -49,6 +50,16 @@ func TransmitRecieve(elevatorUpdateToNetworkCh <-chan elevator.Elevator,
             }
 		}
 	}
+}
+
+
+func mergeRequests(packet *ElevatorPacket, localElevator elevator.Elevator) elevator.Elevator {
+    for f := localElevator.MinFloor; f <= localElevator.MaxFloor; f++ {
+        packet.Elevator.Requests.Up[f] = localElevator.Requests.Up[f] || packet.Elevator.Requests.Up[f]
+        packet.Elevator.Requests.Down[f] = localElevator.Requests.Down[f] || packet.Elevator.Requests.Down[f]
+        packet.Elevator.Requests.ToFloor[f] = localElevator.Requests.ToFloor[f] || packet.Elevator.Requests.ToFloor[f]
+    }
+    return packet.Elevator 
 }
 
 func incrementSequenceNumber(Id string) {
@@ -75,12 +86,20 @@ func shouldScrapPacket(packet *ElevatorPacket, elevators map[string]elevator.Ele
 	currentSequenceNumber := sequenceNumbers[packet.Elevator.Id]
 	sequenceNumbersMutex.Unlock()
     if !verifyChecksum(*packet) {
+        fmt.Println("Cheksum failed")
         return true 
     }
 	if packet.SequenceNumber < currentSequenceNumber {
+        fmt.Println("Seq: ", packet.SequenceNumber, currentSequenceNumber)
 		return true
-    // TODO:    Do we need to do something if the info is different and 
-    //          and the sequence numbers are the same? 
+
+    } else if packet.SequenceNumber == currentSequenceNumber {
+        currentElev, ok := elevators[packet.Elevator.Id]
+        if ok {
+            packet.Elevator = mergeRequests(packet, currentElev)
+        }
+        return false
+
 	} else {
 		updateSequenceNumber(packet.Elevator.Id, packet.SequenceNumber)
 		return false
