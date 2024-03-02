@@ -32,27 +32,8 @@ func ListenAndServe(
 	onDoorsClosingCh := make(chan bool)
 	obstructionCh := make(chan bool)
 
-	// floorWatchdog := watchdog.New(time.Second*5,
-	// 	make(chan bool),
-	// 	elevatorStuckCh,
-	// 	func() {
-	// 		elevator.Stop()
-	// 		fmt.Println("floor watchdog")
-	// 	})
-	//
-	// doorWatchdog := watchdog.New(time.Second*30,
-	// 	make(chan bool),
-	// 	elevatorStuckCh,
-	// 	func() {
-	// 		elevator.Stop()
-	// 		fmt.Println("Door watchdog")
-	// 	})
-	//
     setInitialState(e, onDoorsClosingCh, obstructionCh)
     
-	// go watchdog.Start(floorWatchdog)
-	// go watchdog.Start(doorWatchdog)
-
     doorTimer := time.NewTicker(10 * time.Second)
     floorTimer := time.NewTicker(5 * time.Second)
 
@@ -62,7 +43,7 @@ func ListenAndServe(
 	for {
 		select {
 		case req := <-requestUpdateCh:
-            if hasNewRequest(e, req) {
+            if hasNewRequest(e, req) || e.State != elevator.IDLE {
                 e.Requests = req
                 elevator.SetCabLights(e)
                 handleRequestUpdate(&e, onDoorsClosingCh, obstructionCh)
@@ -76,7 +57,6 @@ func ListenAndServe(
 			}
 
 		case event := <-floorSensCh:
-			// watchdog.Feed(floorWatchdog)
             floorTimer.Reset(doorTimeout)
             elevatorStuckCh <- false
 			hasStopped := handleFloorArrival(event, &e, onDoorsClosingCh, obstructionCh)

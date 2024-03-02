@@ -40,8 +40,8 @@ func main() {
 
 	elevatorRxCh := make(chan conn.ElevatorPacket)
 	elevatorTxCh := make(chan conn.ElevatorPacket)
-	elevatorToNetworkCh := make(chan elevator.Elevator, 100)
-	elevatorFromNetworkCh := make(chan elevator.Elevator, 100)
+	elevatorToNetworkCh := make(chan elevator.Elevator, 1000)
+	elevatorFromNetworkCh := make(chan elevator.Elevator, 1000)
 
 	// elevatorLostCh := make(chan string, 2)
 	// elevatorUpdateCh := make(chan elevator.Elevator)

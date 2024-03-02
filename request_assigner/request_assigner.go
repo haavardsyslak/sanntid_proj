@@ -17,7 +17,7 @@ const (
 )
 
 var thisId string
-
+//
 func HandleOrders(thisElevator elevator.Elevator,
 	elevatorToNetwork chan <-  elevator.Elevator,
 	elevatorFromNetwork <- chan elevator.Elevator,
@@ -39,7 +39,7 @@ func HandleOrders(thisElevator elevator.Elevator,
 
     elevatorToNetwork <- thisElevator
 
-	go elevatorcontroller.ListenAndServe(thisElevator,
+	go elevatorcontroller.ListenAndServe(elevator.CopyElevator(thisElevator),
 		requestUpdateCh,
 		elevatorStuckCh,
 		stopedAtFloor,
@@ -52,22 +52,35 @@ func HandleOrders(thisElevator elevator.Elevator,
 		case floor := <-stopedAtFloor:
 			e, ok := elevators[thisId]
             if !ok {
-                continue
             }
 			e.CurrentFloor = floor
 			e.Requests = requests.ClearAtCurrentFloor(floor, e)
 			elevators[thisId] = e
-			elevatorToNetwork <- elevators[thisId]
+            if len(connectedElevators) >= 1 {
+                elevatorToNetwork <- elevators[thisId]
+            } else {
+                requestUpdateCh <- e.Requests
+                elevator.SetHallLights(e)
+            }
 
 		case order := <-orderCh:
-			e := AssignRequest(elevators, order)
-			elevatorToNetwork <- e
+            e := AssignRequest(elevators, order)
+            if len(connectedElevators) >= 1 {
+                elevatorToNetwork <- e
+            } else {
+                requestUpdateCh <- e.Requests
+                elevator.SetHallLights(e)
+            }
+            
 
-        case isStuck =  <-elevatorStuckCh:
+        case isStuck = <-elevatorStuckCh:
             if isStuck {
                 lostElevator := elevators[thisId]
                 delete(elevators, lostElevator.Id)
-                reassignOrders(lostElevator, elevators, elevatorToNetwork)
+                if len(connectedElevators) >= 0 {
+                    reassignOrders(lostElevator, elevators, elevatorToNetwork)
+                }
+                elevators[thisId] = lostElevator
                 peerTxEnable <- false
             } else {
                 peerTxEnable <- true
@@ -75,7 +88,9 @@ func HandleOrders(thisElevator elevator.Elevator,
 
 		case e := <-elevatorUpdateCh:
 			elevators[e.Id] = e
-			elevatorToNetwork <- e
+            if len(connectedElevators) >= 1 {
+                elevatorToNetwork <- e
+            }
 
 		case e := <-elevatorFromNetwork:
             if isElevatorAlive(connectedElevators, e.Id) {
@@ -89,13 +104,18 @@ func HandleOrders(thisElevator elevator.Elevator,
             }
 
         case p := <- peerUpdateCh:
-            fmt.Println(p.Lost)
+            fmt.Println(p.Peers)
+            connectedElevators = p.Peers
             for _, lostId := range p.Lost {
                 lostElevator := elevators[lostId]
 			    delete(elevators, lostId)
-			    reassignOrders(lostElevator, elevators, elevatorToNetwork)
+                if len(connectedElevators) > 0 {
+                    reassignOrders(lostElevator, elevators, elevatorToNetwork)
+                }
+                if lostId == thisId {
+                    elevators[thisId] = lostElevator
+                }
             }
-            connectedElevators = p.Peers
 		}
 	}
 }
@@ -112,6 +132,7 @@ func isElevatorAlive(elevators []string, elevatorId string) bool {
 func reassignOrders(lostElevator elevator.Elevator, 
 elevators map[string]elevator.Elevator,
 elevatorToNetwork chan <- elevator.Elevator) {
+    fmt.Println(len(elevators))
 	for f, req := range lostElevator.Requests.Up {
 		if req {
             e :=  AssignRequest(elevators, elevator.Order{
@@ -180,9 +201,18 @@ func TimeToIdle(e_sim elevator.Elevator) float32 {
 func AssignRequest(elevators map[string]elevator.Elevator,
     order elevator.Order) elevator.Elevator {
     if order.Type == elevio.BT_Cab {
+        fmt.Println("CAB REQ")
         e := elevators[thisId]
         e.Requests = requests.UpdateRequests(order, e.Requests)
         return e
+    }
+
+    if len(elevators) == 1 {
+        e, ok := elevators[thisId]
+        if ok {
+            e.Requests = requests.UpdateRequests(order, e.Requests)
+            return e
+        }
     }
 	var currentDuration float32 = 0
 	var bestDuration float32 = 1000

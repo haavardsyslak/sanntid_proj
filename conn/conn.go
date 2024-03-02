@@ -24,7 +24,7 @@ func TransmitRecieve(elevatorUpdateToNetworkCh <-chan elevator.Elevator,
 	elevatorTxCh chan<- ElevatorPacket,
 	elevatorRxCh <-chan ElevatorPacket) {
     scrap_cntr := 0
-	bcastTimer := time.NewTicker(100 * time.Millisecond)
+	bcastTimer := time.NewTicker(25 * time.Millisecond)
 	elevators := make(map[string]elevator.Elevator)
 	for {
 		select {
@@ -40,11 +40,8 @@ func TransmitRecieve(elevatorUpdateToNetworkCh <-chan elevator.Elevator,
 		case packet := <-elevatorRxCh:
 			e, err := handleIncommingPacket(packet, elevators)
 			if err != nil {
-				fmt.Println(err)
                 scrap_cntr++
-                // elevatorUpdateFromNetworkCh <- elevators[packet.Elevator.Id]
 			} else {
-                //elevator.PrintElevator(packet.Elevator)
                 elevators[packet.Elevator.Id] = packet.Elevator
                 elevatorUpdateFromNetworkCh <- e
             }
@@ -90,15 +87,14 @@ func shouldScrapPacket(packet *ElevatorPacket, elevators map[string]elevator.Ele
         return true 
     }
 	if packet.SequenceNumber < currentSequenceNumber {
-        fmt.Println("Seq: ", packet.SequenceNumber, currentSequenceNumber)
 		return true
 
-    } else if packet.SequenceNumber == currentSequenceNumber {
-        currentElev, ok := elevators[packet.Elevator.Id]
-        if ok {
-            packet.Elevator = mergeRequests(packet, currentElev)
-        }
-        return false
+    // } else if packet.SequenceNumber == currentSequenceNumber {
+    //     currentElev, ok := elevators[packet.Elevator.Id]
+    //     if ok {
+    //         packet.Elevator = mergeRequests(packet, currentElev)
+    //     }
+    //     return false
 
 	} else {
 		updateSequenceNumber(packet.Elevator.Id, packet.SequenceNumber)
