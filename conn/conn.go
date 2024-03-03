@@ -28,7 +28,7 @@ func TransmitRecieve(elevatorUpdateToNetworkCh <-chan elevator.Elevator,
 	elevators := make(map[string]elevator.Elevator)
 	for {
 		select {
-		case e := <-elevatorUpdateToNetworkCh:
+		case e := <- elevatorUpdateToNetworkCh:
 			elevators[e.Id] = e
 			incrementSequenceNumber(e.Id)
 
@@ -41,6 +41,7 @@ func TransmitRecieve(elevatorUpdateToNetworkCh <-chan elevator.Elevator,
 			e, err := handleIncommingPacket(packet, elevators)
 			if err != nil {
                 scrap_cntr++
+                fmt.Println(scrap_cntr)
 			} else {
                 elevators[packet.Elevator.Id] = packet.Elevator
                 elevatorUpdateFromNetworkCh <- e

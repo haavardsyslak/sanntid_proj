@@ -43,9 +43,9 @@ func New(Id string) Elevator {
         Dir:   elevio.MD_Stop,
 		State: IDLE,
 		Requests: Requests{
-			Up:      make([]bool, 4),
-			Down:    make([]bool, 4),
-			ToFloor: make([]bool, 4),
+			Up:      []bool{false, false, false, false},
+			Down:    []bool{false, false, false, false},
+			ToFloor: []bool{false, false, false, false},
 		},
 		MaxFloor:     3,
 		MinFloor:     0,

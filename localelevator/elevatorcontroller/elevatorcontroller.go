@@ -2,20 +2,17 @@ package elevatorcontroller
 
 import (
 	"Driver-go/elevio"
-	// "fmt"
+	"fmt"
 	"sanntid/localelevator/elevator"
 	"sanntid/localelevator/requests"
 
-	// "log"
 	"os"
 	"os/exec"
-	// "sanntid/watchdog"
 	"time"
-	// "fmt"
 )
 
 const doorTimeout time.Duration = 10 * time.Second
-const foorTimeout time.Duration = 5 * time.Second
+const floorTimeout time.Duration = 50 * time.Second
 
 func ListenAndServe(
 	e elevator.Elevator,
@@ -34,8 +31,9 @@ func ListenAndServe(
 
     setInitialState(e, onDoorsClosingCh, obstructionCh)
     
-    doorTimer := time.NewTicker(10 * time.Second)
-    floorTimer := time.NewTicker(5 * time.Second)
+    doorTimer := time.NewTicker(doorTimeout)
+    floorTimer := time.NewTicker(floorTimeout)
+    // var lastRequestUpdate time.Time
 
 
 	ticker := time.NewTicker(time.Millisecond * 250)
@@ -43,12 +41,21 @@ func ListenAndServe(
 	for {
 		select {
 		case req := <-requestUpdateCh:
-            if hasNewRequest(e, req) || e.State != elevator.IDLE {
-                e.Requests = req
-                elevator.SetCabLights(e)
-                handleRequestUpdate(&e, onDoorsClosingCh, obstructionCh)
+            e.Requests = req
+            elevator.SetCabLights(e)
+            lastState := e.State
+            lastDir := e.Dir
+            handleRequestUpdate(&e, onDoorsClosingCh, obstructionCh)
+            if lastDir != e.Dir || lastState != e.State {
                 elevatorUpdateCh <- e
             }
+            // if hasNewRequest(e, req) || time.Since(lastRequestUpdate) > time.Second {
+            //     e.Requests = req
+            //     elevator.SetCabLights(e)
+            //     lastRequestUpdate = time.Now()
+            //     handleRequestUpdate(&e, onDoorsClosingCh, obstructionCh)
+            //     elevatorUpdateCh <- e
+            // }
 
 		case event := <-buttonCh:
 			orderChan <- elevator.Order{
@@ -81,9 +88,11 @@ func ListenAndServe(
 			}
 			if e.State != elevator.MOVING {
 				// watchdog.Feed(floorWatchdog)
-                floorTimer.Reset(foorTimeout)
+                fmt.Println("Rest floor timer")
+                floorTimer.Reset(floorTimeout)
 			}
 			if e.State != elevator.DOOR_OPEN {
+                fmt.Println("Rest door timer")
 				doorTimer.Reset(doorTimeout)
 			}
         case <- floorTimer.C:

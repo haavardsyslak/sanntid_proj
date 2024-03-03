@@ -56,28 +56,29 @@ func HandleOrders(thisElevator elevator.Elevator,
 			e.CurrentFloor = floor
 			e.Requests = requests.ClearAtCurrentFloor(floor, e)
 			elevators[thisId] = e
-            if len(connectedElevators) >= 1 {
                 elevatorToNetwork <- elevators[thisId]
-            } else {
+
+            if len(connectedElevators) == 0 {
                 requestUpdateCh <- e.Requests
                 elevator.SetHallLights(e)
             }
 
 		case order := <-orderCh:
             e := AssignRequest(elevators, order)
-            if len(connectedElevators) >= 1 {
                 elevatorToNetwork <- e
-            } else {
+
+            if len(connectedElevators) == 0 {
                 requestUpdateCh <- e.Requests
                 elevator.SetHallLights(e)
             }
             
 
         case isStuck = <-elevatorStuckCh:
+            fmt.Println("is Stuck: ", isStuck)
             if isStuck {
                 lostElevator := elevators[thisId]
                 delete(elevators, lostElevator.Id)
-                if len(connectedElevators) >= 0 {
+                if len(connectedElevators) >= 0 && len(elevators) >= 1 {
                     reassignOrders(lostElevator, elevators, elevatorToNetwork)
                 }
                 elevators[thisId] = lostElevator
@@ -88,9 +89,10 @@ func HandleOrders(thisElevator elevator.Elevator,
 
 		case e := <-elevatorUpdateCh:
 			elevators[e.Id] = e
-            if len(connectedElevators) >= 1 {
-                elevatorToNetwork <- e
-            }
+            // if len(connectedElevators) >= 1 {
+            //     elevatorToNetwork <- e
+            // }
+            elevatorToNetwork <- e
 
 		case e := <-elevatorFromNetwork:
             if isElevatorAlive(connectedElevators, e.Id) {
@@ -109,7 +111,8 @@ func HandleOrders(thisElevator elevator.Elevator,
             for _, lostId := range p.Lost {
                 lostElevator := elevators[lostId]
 			    delete(elevators, lostId)
-                if len(connectedElevators) > 0 {
+                if len(connectedElevators) > 0 && len(elevators) >= 1 {
+                    fmt.Println("Reassigning")
                     reassignOrders(lostElevator, elevators, elevatorToNetwork)
                 }
                 if lostId == thisId {
