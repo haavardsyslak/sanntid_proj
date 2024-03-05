@@ -11,7 +11,6 @@ import (
 	"Network-go/network/peers"
 	"sanntid/packethandler"
 	"sanntid/localelevator/elevator"
-	//"sanntid/fakeorderassigner"
     "sanntid/request_assigner"
 )
 
@@ -51,7 +50,7 @@ func main() {
         e = networkElevator
     }
 
-    go request_assigner.HandleOrders(e,
+    go request_assigner.DistributeRequests(e,
         elevatorToNetworkCh,
         elevatorFromNetworkCh,
 		peerUpdateCh,

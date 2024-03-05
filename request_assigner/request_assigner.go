@@ -1,7 +1,6 @@
 package request_assigner
 
 import (
-	//"fmt"
 	"Driver-go/elevio"
 	p "Network-go/network/peers"
 	"fmt"
@@ -19,7 +18,7 @@ const (
 
 var thisId string
 //
-func HandleOrders(thisElevator elevator.Elevator,
+func DistributeRequests(thisElevator elevator.Elevator,
 	elevatorToNetwork chan <-  elevator.Elevator,
 	elevatorFromNetwork <- chan elevator.Elevator,
 	peerUpdateCh <-chan p.PeerUpdate,
@@ -90,9 +89,6 @@ func HandleOrders(thisElevator elevator.Elevator,
 
 		case e := <-elevatorUpdateCh:
 			elevators[e.Id] = e
-            // if len(connectedElevators) >= 1 {
-            //     elevatorToNetwork <- e
-            // }
             elevatorToNetwork <- e
 
 		case e := <-elevatorFromNetwork:
@@ -113,7 +109,6 @@ func HandleOrders(thisElevator elevator.Elevator,
                 lostElevator := elevators[lostId]
 			    delete(elevators, lostId)
                 if len(connectedElevators) > 0 && len(elevators) >= 1 {
-                    fmt.Println("Reassigning")
                     reassignOrders(lostElevator, elevators, elevatorToNetwork)
                 }
                 if lostId == thisId {
