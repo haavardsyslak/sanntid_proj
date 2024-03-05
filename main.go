@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -41,13 +40,14 @@ func main() {
     )
 
     e := elevator.New(id)
-    networkElevator, err := recoverFromNetwork(id, elevatorFromNetworkCh)
-    if err != nil {
-        floor := elevator.Init(port, false)
-        e.CurrentFloor = floor
-    } else {
+    networkElevator, hasRecovered := recoverFromNetwork(id, elevatorFromNetworkCh)
+
+    if hasRecovered {
         elevator.Init(port, true)
         e = networkElevator
+    } else {
+        floor := elevator.Init(port, false)
+        e.CurrentFloor = floor
     }
 
     go request_assigner.DistributeRequests(e,
@@ -79,15 +79,15 @@ func parseCliArgs(id *string, port *int) {
 }
 
 func recoverFromNetwork(id string, 
-elevatorFromNetworkCh chan elevator.Elevator) (elevator.Elevator, error) {
+elevatorFromNetworkCh chan elevator.Elevator) (elevator.Elevator, bool) {
     timeout := time.NewTicker(500 * time.Millisecond)   
     for {
         select {
         case <- timeout.C:
-            return elevator.Elevator{}, errors.New("Unable to recover from network")
+            return elevator.Elevator{}, false
         case e := <- elevatorFromNetworkCh:
             if e.Id == id {
-                return e, nil
+                return e, true
             }
         }
     }

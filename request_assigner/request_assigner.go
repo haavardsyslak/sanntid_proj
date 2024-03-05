@@ -31,7 +31,7 @@ func DistributeRequests(thisElevator elevator.Elevator,
 	elevators := make(map[string]elevator.Elevator)
 
 	thisId = thisElevator.Id
-	elevators[thisElevator.Id] = thisElevator
+	elevators[thisId] = thisElevator
 	elevatorUpdateCh := make(chan elevator.Elevator)
 
     var connectedElevators []string
@@ -74,7 +74,6 @@ func DistributeRequests(thisElevator elevator.Elevator,
             
 
         case isStuck = <-elevatorStuckCh:
-            fmt.Println("is Stuck: ", isStuck)
             if isStuck {
                 lostElevator := elevators[thisId]
                 delete(elevators, lostElevator.Id)
