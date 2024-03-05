@@ -148,9 +148,7 @@ func OpenDoors(doorsOpenCh chan bool, obstructionCh chan bool) {
             counter += 1
             if counter >= 6 {
                 elevio.SetDoorOpenLamp(false)
-                fmt.Println("Signaling doors")
                 doorsOpenCh <- true
-                fmt.Println("Doors signaled")
                 return
             }
         }
@@ -177,6 +175,28 @@ func SetAllLights(e Elevator) {
 		elevio.SetButtonLamp(elevio.BT_HallUp, f, e.Requests.Up[f])
 		elevio.SetButtonLamp(elevio.BT_HallDown, f, e.Requests.Down[f])
 		elevio.SetButtonLamp(elevio.BT_Cab, f, e.Requests.ToFloor[f])
+	}
+}
+
+func CopyElevator(e Elevator) Elevator {
+    requests := Requests{
+        Up:      make([]bool, config.NFloors),
+        Down:    make([]bool, config.NFloors),
+        ToFloor: make([]bool, config.NFloors),
+    }
+    for f := e.MinFloor; f <= e.MaxFloor; f++ {
+        requests.Up[f] = e.Requests.Up[f]
+        requests.Down[f] = e.Requests.Down[f]
+        requests.ToFloor[f] = e.Requests.ToFloor[f]
+    }
+    return Elevator{
+        Dir:   e.Dir,
+		State: e.State,
+		Requests: requests,
+		MaxFloor:     e.MaxFloor,
+		MinFloor:     e.MinFloor,
+		CurrentFloor: e.CurrentFloor,
+        Id: e.Id,
 	}
 }
 
@@ -232,24 +252,3 @@ func printDir(dir elevio.MotorDirection) {
 }
 
 
-func CopyElevator(e Elevator) Elevator {
-    requests := Requests{
-        Up:      make([]bool, config.NFloors),
-        Down:    make([]bool, config.NFloors),
-        ToFloor: make([]bool, config.NFloors),
-    }
-    for f := e.MinFloor; f <= e.MaxFloor; f++ {
-        requests.Up[f] = e.Requests.Up[f]
-        requests.Down[f] = e.Requests.Down[f]
-        requests.ToFloor[f] = e.Requests.ToFloor[f]
-    }
-    return Elevator{
-        Dir:   e.Dir,
-		State: e.State,
-		Requests: requests,
-		MaxFloor:     e.MaxFloor,
-		MinFloor:     e.MinFloor,
-		CurrentFloor: e.CurrentFloor,
-        Id: e.Id,
-	}
-}

@@ -5,6 +5,7 @@ import (
 	"Driver-go/elevio"
 	p "Network-go/network/peers"
 	"fmt"
+	"sanntid/config"
 	"sanntid/localelevator/elevator"
 	"sanntid/localelevator/elevatorcontroller"
 	"sanntid/localelevator/requests"
@@ -132,10 +133,10 @@ func isElevatorAlive(elevators []string, elevatorId string) bool {
     return false
 }
 
+// Reassigns the orders of the lostElevator
 func reassignOrders(lostElevator elevator.Elevator, 
 elevators map[string]elevator.Elevator,
 elevatorToNetwork chan <- elevator.Elevator) {
-    fmt.Println(len(elevators))
 	for f, req := range lostElevator.Requests.Up {
 		if req {
             e :=  AssignRequest(elevators, elevator.Order{
@@ -163,7 +164,8 @@ elevatorToNetwork chan <- elevator.Elevator) {
 }
 
 
-// Simulates execution of elevator and returns a cost - elevator with lowest cost should serve the request
+// Simulates execution of elevator and returns a cost 
+// elevator with lowest cost should serve the request
 func TimeToIdle(e_sim elevator.Elevator) float32 {
 	e := e_sim
 	var duration float32 = 0
@@ -196,11 +198,7 @@ func TimeToIdle(e_sim elevator.Elevator) float32 {
 	}
 }
 
-// TODO: lag funksjon som bruker TimeToIdle på alle heiser og setter den unassigned requesten i den mest optimale heisen
-// sin request queue. Må vell her simulere å legge requesten til køen ved å legge den til i den kopierte heisen sin kø
-// sånn at HasRequest funksjonene funker?
-// "Remember to copy the Elevator data and add the new unassigned request to that copy before calling timeToIdle..."
-
+// Asigns the request to the best available elevator
 func AssignRequest(elevators map[string]elevator.Elevator,
     order elevator.Order) elevator.Elevator {
     if order.Type == elevio.BT_Cab {
@@ -243,9 +241,9 @@ func AssignRequest(elevators map[string]elevator.Elevator,
 func mergeAllHallReqs(elevators map[string]elevator.Elevator) elevator.Requests {
 
     reqs := elevator.Requests {
-        Up: make([]bool, 4),
-        Down: make([]bool, 4),
-        ToFloor: make([]bool, 4),
+        Up: make([]bool, config.NFloors),
+        Down: make([]bool, config.NFloors),
+        ToFloor: make([]bool, config.NFloors),
     }
 
     for _, e := range elevators {

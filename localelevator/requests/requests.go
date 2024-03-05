@@ -45,28 +45,6 @@ func HasRequestHere(elevator elevator.Elevator) bool {
 		elevator.Requests.ToFloor[elevator.CurrentFloor])
 }
 
-func SimClearRequest(e elevator.Elevator) elevator.Elevator {
-    floor := e.CurrentFloor
-	switch e.Dir {
-	case elevio.MD_Up:
-		e.Requests.Up[floor] = false
-		e.Requests.ToFloor[floor] = false
-		if floor == e.MaxFloor {
-			e.Requests.Down[floor] = false
-		}
-	case elevio.MD_Down:
-		e.Requests.Down[floor] = false
-		e.Requests.ToFloor[floor] = false
-		if floor == e.MinFloor {
-			e.Requests.Up[floor] = false
-		}
-	default:
-		e.Requests.Down[floor] = false
-		e.Requests.ToFloor[floor] = false
-		e.Requests.Up[floor] = false
-	}
-	return e
-}
 
 
 func ClearRequest(floor int, e *elevator.Elevator, reqType elevio.ButtonType) {
