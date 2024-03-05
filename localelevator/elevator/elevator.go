@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+    "sanntid/config"
 )
 
 type ElevatorState int
@@ -37,18 +38,17 @@ type Elevator struct {
 }
 
 
-// TODO: remove hardcoded values
 func New(Id string) Elevator {
     return Elevator{
         Dir:   elevio.MD_Stop,
 		State: IDLE,
 		Requests: Requests{
-			Up:      []bool{false, false, false, false},
-			Down:    []bool{false, false, false, false},
-			ToFloor: []bool{false, false, false, false},
+			Up:      make([]bool, config.NFloors),
+			Down:    make([]bool, config.NFloors),
+			ToFloor: make([]bool, config.NFloors),
 		},
-		MaxFloor:     3,
-		MinFloor:     0,
+        MaxFloor: config.MaxFloor,
+        MinFloor: config.MinFloor,
 		CurrentFloor: 0,
         Id: Id,
 	}
@@ -234,9 +234,9 @@ func printDir(dir elevio.MotorDirection) {
 
 func CopyElevator(e Elevator) Elevator {
     requests := Requests{
-        Up:      make([]bool, 4),
-        Down:    make([]bool, 4),
-        ToFloor: make([]bool, 4),
+        Up:      make([]bool, config.NFloors),
+        Down:    make([]bool, config.NFloors),
+        ToFloor: make([]bool, config.NFloors),
     }
     for f := e.MinFloor; f <= e.MaxFloor; f++ {
         requests.Up[f] = e.Requests.Up[f]

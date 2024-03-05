@@ -49,13 +49,6 @@ func ListenAndServe(
             if lastDir != e.Dir || lastState != e.State {
                 elevatorUpdateCh <- e
             }
-            // if hasNewRequest(e, req) || time.Since(lastRequestUpdate) > time.Second {
-            //     e.Requests = req
-            //     elevator.SetCabLights(e)
-            //     lastRequestUpdate = time.Now()
-            //     handleRequestUpdate(&e, onDoorsClosingCh, obstructionCh)
-            //     elevatorUpdateCh <- e
-            // }
 
 		case event := <-buttonCh:
 			orderChan <- elevator.Order{
@@ -66,10 +59,11 @@ func ListenAndServe(
 		case event := <-floorSensCh:
             floorTimer.Reset(doorTimeout)
             elevatorStuckCh <- false
-			hasStopped := handleFloorArrival(event, &e, onDoorsClosingCh, obstructionCh)
-			if hasStopped {
-				stopedAtFloor <- event
-			}
+			_ = handleFloorArrival(event, &e, onDoorsClosingCh, obstructionCh)
+			// if hasStopped {
+			// 	stopedAtFloor <- event
+			// }
+            elevatorUpdateCh <- e
 
 		case <-onDoorsClosingCh:
             elevatorStuckCh <- false
@@ -87,7 +81,6 @@ func ListenAndServe(
 				elevator.PrintElevator(e)
 			}
 			if e.State != elevator.MOVING {
-				// watchdog.Feed(floorWatchdog)
                 fmt.Println("Rest floor timer")
                 floorTimer.Reset(floorTimeout)
 			}
@@ -160,14 +153,6 @@ func handleFloorArrival(floor int,
         e.State = elevator.DOOR_OPEN
         go elevator.OpenDoors(onDoorsClosingCh, obstructionCh)
     }
-	// e.Dir, e.State = requests.GetNewDirectionAndState(*e)
-	// if e.State == elevator.DOOR_OPEN {
-	// 	elevator.Stop()
-	// 	go elevator.OpenDoors(onDoorsClosingCh, obstructionCh)
-	// 	return true
-	// } else {
-	// 	elevio.SetMotorDirection(e.Dir)
-	// }
 	return false
 }
 

@@ -9,7 +9,7 @@ import (
 	"Network-go/network/bcast"
 	"Network-go/network/localip"
 	"Network-go/network/peers"
-	"sanntid/conn"
+	"sanntid/packethandler"
 	"sanntid/localelevator/elevator"
 	//"sanntid/fakeorderassigner"
     "sanntid/request_assigner"
@@ -38,8 +38,8 @@ func main() {
 	peerUpdateCh := make(chan peers.PeerUpdate)
 	peerTxEnable := make(chan bool)
 
-	elevatorRxCh := make(chan conn.ElevatorPacket)
-	elevatorTxCh := make(chan conn.ElevatorPacket)
+	elevatorRxCh := make(chan packethandler.ElevatorPacket)
+	elevatorTxCh := make(chan packethandler.ElevatorPacket)
 	elevatorToNetworkCh := make(chan elevator.Elevator, 1000)
 	elevatorFromNetworkCh := make(chan elevator.Elevator, 1000)
 
@@ -54,7 +54,7 @@ func main() {
 
 	// ticker := time.NewTicker(100 * time.Millisecond)
 
-	go conn.TransmitRecieve(elevatorToNetworkCh,
+	go packethandler.TransmitRecieve(elevatorToNetworkCh,
 		elevatorFromNetworkCh,
 		elevatorTxCh,
 		elevatorRxCh,
