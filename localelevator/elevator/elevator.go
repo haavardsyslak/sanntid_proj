@@ -116,22 +116,6 @@ func Stop() {
 	elevio.SetMotorDirection(elevio.MD_Stop)
 }
 
-func ServeOrder(currentFloor int, toFloor int) elevio.MotorDirection {
-	dir := get_elevator_dir(currentFloor, toFloor)
-	elevio.SetMotorDirection(dir)
-	return dir
-}
-
-func get_elevator_dir(floor int, toFloor int) elevio.MotorDirection {
-	if toFloor == floor {
-		return elevio.MD_Stop
-	} else if toFloor > floor {
-		return elevio.MD_Up
-	} else {
-		return elevio.MD_Down
-	}
-}
-
 func OpenDoors(doorsOpenCh chan bool, obstructionCh chan bool) {
     ticker := time.NewTicker(500*time.Millisecond)
     counter := 0
@@ -166,16 +150,6 @@ func SetCabLights(e Elevator) {
     for f := e.MinFloor; f <= e.MaxFloor; f++ {
         elevio.SetButtonLamp(elevio.BT_Cab, f, e.Requests.ToFloor[f])
     }
-}
-
-
-
-func SetAllLights(e Elevator) {
-	for f := e.MinFloor; f <= e.MaxFloor; f++ {
-		elevio.SetButtonLamp(elevio.BT_HallUp, f, e.Requests.Up[f])
-		elevio.SetButtonLamp(elevio.BT_HallDown, f, e.Requests.Down[f])
-		elevio.SetButtonLamp(elevio.BT_Cab, f, e.Requests.ToFloor[f])
-	}
 }
 
 func CopyElevator(e Elevator) Elevator {

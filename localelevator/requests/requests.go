@@ -46,20 +46,6 @@ func HasRequestHere(elevator elevator.Elevator) bool {
 }
 
 
-
-func ClearRequest(floor int, e *elevator.Elevator, reqType elevio.ButtonType) {
-	switch reqType {
-	case elevio.BT_HallUp:
-		e.Requests.Up[floor] = false
-		e.Requests.ToFloor[floor] = false
-	case elevio.BT_HallDown:
-		e.Requests.Down[floor] = false
-		e.Requests.ToFloor[floor] = false
-	case elevio.BT_Cab:
-		e.Requests.ToFloor[floor] = false
-	}
-}
-
 func ShouldStop(e elevator.Elevator) (bool) {
     switch(e.Dir){
     case elevio.MD_Down: 
