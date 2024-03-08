@@ -67,7 +67,6 @@ func DistributeRequests(thisElevator elevator.Elevator,
                 elevator.SetHallLights(e)
             }
             
-
         case isStuck := <-elevatorStuckCh:
             if isStuck {
                 peerTxEnable <- false

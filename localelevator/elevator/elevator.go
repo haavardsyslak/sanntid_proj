@@ -42,9 +42,9 @@ func New(Id string) Elevator {
         Dir:   elevio.MD_Stop,
 		State: IDLE,
 		Requests: Requests{
-			Up:      make([]bool, config.NFloors),
-			Down:    make([]bool, config.NFloors),
-			ToFloor: make([]bool, config.NFloors),
+			Up:      make([]bool, config.NumFloors),
+			Down:    make([]bool, config.NumFloors),
+			ToFloor: make([]bool, config.NumFloors),
 		},
         MaxFloor: config.MaxFloor,
         MinFloor: config.MinFloor,
@@ -56,7 +56,7 @@ func New(Id string) Elevator {
 func Init(port int, fromNetwork bool) int {
     // Init elevator
     // Run elevator to known floor
-    elevio.Init(fmt.Sprintf("localhost:%d", port), config.NFloors)
+    elevio.Init(fmt.Sprintf("localhost:%d", port), config.NumFloors)
     if !fromNetwork {
         floor := elevio.GetFloor()
         if floor == -1 {
@@ -153,9 +153,9 @@ func SetCabLights(e Elevator) {
 
 func CopyElevator(e Elevator) Elevator {
     requests := Requests{
-        Up:      make([]bool, config.NFloors),
-        Down:    make([]bool, config.NFloors),
-        ToFloor: make([]bool, config.NFloors),
+        Up:      make([]bool, config.NumFloors),
+        Down:    make([]bool, config.NumFloors),
+        ToFloor: make([]bool, config.NumFloors),
     }
     for f := e.MinFloor; f <= e.MaxFloor; f++ {
         requests.Up[f] = e.Requests.Up[f]

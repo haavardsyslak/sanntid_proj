@@ -127,9 +127,9 @@ func ClearAtCurrentFloor(floor int, e elevator.Elevator) elevator.Requests {
 func MergeHallRequests(elevators map[string]elevator.Elevator) elevator.Requests {
 
     reqs := elevator.Requests {
-        Up: make([]bool, config.NFloors),
-        Down: make([]bool, config.NFloors),
-        ToFloor: make([]bool, config.NFloors),
+        Up: make([]bool, config.NumFloors),
+        Down: make([]bool, config.NumFloors),
+        ToFloor: make([]bool, config.NumFloors),
     }
 
     for _, e := range elevators {
