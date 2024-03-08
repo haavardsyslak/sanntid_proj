@@ -2,18 +2,20 @@ package elevatorcontroller
 
 import (
 	"Driver-go/elevio"
-	"fmt"
+	// "fmt"
 	"sanntid/localelevator/elevator"
-	"sanntid/localelevator/requests"
-
+    "sanntid/localelevator/requests"
 	"os"
 	"os/exec"
 	"time"
 )
 
-const doorTimeout time.Duration = 10 * time.Second
+const doorTimeout time.Duration = 100 * time.Second
 const floorTimeout time.Duration = 50 * time.Second
-
+/*
+ Listen for orders (button presses)
+ and serve the currently active requests
+*/
 func ListenAndServe(
 	e elevator.Elevator,
 	requestUpdateCh chan elevator.Requests,
@@ -33,11 +35,10 @@ func ListenAndServe(
     
     doorTimer := time.NewTicker(doorTimeout)
     floorTimer := time.NewTicker(floorTimeout)
-    // var lastRequestUpdate time.Time
 
-
-	ticker := time.NewTicker(time.Millisecond * 250)
+	watchdogTicker := time.NewTicker(time.Millisecond * 250)
 	elevator.PollElevatorIO(buttonCh, floorSensCh, stopButtonCh, obstructionCh)
+
 	for {
 		select {
 		case req := <-requestUpdateCh:
@@ -59,10 +60,7 @@ func ListenAndServe(
 		case event := <-floorSensCh:
             floorTimer.Reset(doorTimeout)
             elevatorStuckCh <- false
-			_ = handleFloorArrival(event, &e, onDoorsClosingCh, obstructionCh)
-			// if hasStopped {
-			// 	stopedAtFloor <- event
-			// }
+			handleFloorArrival(event, &e, onDoorsClosingCh, obstructionCh)
             elevatorUpdateCh <- e
 
 		case <-onDoorsClosingCh:
@@ -73,7 +71,7 @@ func ListenAndServe(
 			handleDoorsClosing(&e, onDoorsClosingCh, obstructionCh)
 			elevatorUpdateCh <- e
 
-		case <-ticker.C:
+        case <- watchdogTicker.C:
 			if printEnabled {
 				cmd := exec.Command("clear")
 				cmd.Stdout = os.Stdout
@@ -81,11 +79,9 @@ func ListenAndServe(
 				elevator.PrintElevator(e)
 			}
 			if e.State != elevator.MOVING {
-                fmt.Println("Rest floor timer")
                 floorTimer.Reset(floorTimeout)
 			}
 			if e.State != elevator.DOOR_OPEN {
-                fmt.Println("Rest door timer")
 				doorTimer.Reset(doorTimeout)
 			}
         case <- floorTimer.C:
@@ -122,9 +118,6 @@ func handleRequestUpdate(e *elevator.Elevator,
 		} else {
 			elevio.SetMotorDirection(e.Dir)
 		}
-		// Probably no need to do anything on the other states:
-		// MOVING => next moves are handled by handleFloorArrival
-		// Doors open => next moves are handled by the handleDoorsClosing
 	}
 }
 
@@ -138,6 +131,7 @@ func handleDoorsClosing(e *elevator.Elevator,
 	}
 }
 
+// TODO: return value is not used
 func handleFloorArrival(floor int,
 	e *elevator.Elevator,
 	onDoorsClosingCh chan bool,

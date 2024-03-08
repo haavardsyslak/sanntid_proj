@@ -22,6 +22,9 @@ func main() {
 	peerUpdateCh := make(chan peers.PeerUpdate)
 	peerTxEnable := make(chan bool)
 
+    lostPeersCh := make(chan []string)
+    connectedPeersCh := make(chan []string)
+
 	elevatorRxCh := make(chan packethandler.ElevatorPacket)
 	elevatorTxCh := make(chan packethandler.ElevatorPacket)
 	elevatorToNetworkCh := make(chan elevator.Elevator, 1000)
@@ -33,10 +36,12 @@ func main() {
 	go bcast.Transmitter(16569, elevatorTxCh)
 	go bcast.Receiver(16569, elevatorRxCh)
 
-	go packethandler.TransmitRecieve(elevatorToNetworkCh,
+	go packethandler.TransmitRecieve(id,
+        elevatorToNetworkCh,
 		elevatorFromNetworkCh,
 		elevatorTxCh,
 		elevatorRxCh,
+        connectedPeersCh,
     )
 
     e := elevator.New(id)
@@ -53,11 +58,18 @@ func main() {
     go request_assigner.DistributeRequests(e,
         elevatorToNetworkCh,
         elevatorFromNetworkCh,
-		peerUpdateCh,
+		lostPeersCh,
         peerTxEnable,
     )
 
-    for {}
+	for {
+		select {
+		case p := <-peerUpdateCh:
+            fmt.Println(p.Peers)
+            connectedPeersCh <- p.Peers
+            lostPeersCh <- p.Lost
+        }
+    }
 }
 
 func parseCliArgs(id *string, port *int) {
