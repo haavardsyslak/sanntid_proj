@@ -99,9 +99,9 @@ func shouldScrapPacket(packet *ElevatorPacket, elevators map[string]elevator.Ele
 	if packet.SequenceNumber < currentSequenceNumber {
 		return true
 
-    } else if packet.SequenceNumber == currentSequenceNumber {
-        mergeRequests(packet, elevators[packet.Elevator.Id])
-        return false
+    // } else if packet.SequenceNumber == currentSequenceNumber {
+    //     mergeRequests(packet, elevators[packet.Elevator.Id])
+    //     return false
     } else {
 		updateSequenceNumber(packet.Elevator.Id, packet.SequenceNumber)
 		return false

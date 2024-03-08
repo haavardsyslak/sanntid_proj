@@ -60,7 +60,7 @@ func DistributeRequests(thisElevator elevator.Elevator,
 
 		case order := <-orderCh:
             e := AssignRequest(elevators, order)
-                elevatorToNetwork <- e
+            elevatorToNetwork <- e
 
             if len(elevators) == 1 {
                 requestUpdateCh <- e.Requests
@@ -86,6 +86,9 @@ func DistributeRequests(thisElevator elevator.Elevator,
 			    elevators[e.Id] = e
                 e.Requests = requests.MergeHallRequests(elevators)
                 elevator.SetHallLights(e)
+                if len(elevators) == 1 {
+                    requestUpdateCh <- e.Requests
+                }
 
         case lostElevators := <- lostElevatorsCh: 
             for _, lostId := range lostElevators {

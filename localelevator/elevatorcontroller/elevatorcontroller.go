@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-const doorTimeout time.Duration = 100 * time.Second
-const floorTimeout time.Duration = 50 * time.Second
+const doorTimeout time.Duration = 5 * time.Second
+const floorTimeout time.Duration = 5 * time.Second
 /*
  Listen for orders (button presses)
  and serve the currently active requests
