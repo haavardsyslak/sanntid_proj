@@ -69,6 +69,12 @@ func DistributeRequests(thisElevator elevator.Elevator,
             
         case isStuck := <-elevatorStuckCh:
             if isStuck {
+                lostElevator := elevators[thisId]
+                delete(elevators, lostElevator.Id)
+                if len(elevators) >= 1 {
+                    reassignOrders(lostElevator, elevators, elevatorToNetwork)
+                }
+                elevators[thisId] = lostElevator
                 peerTxEnable <- false
             } else {
                 peerTxEnable <- true
