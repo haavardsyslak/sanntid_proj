@@ -11,6 +11,7 @@ import (
 )
 
 type ElevatorPacket struct {
+    SenderID   string
 	Elevator       elevator.Elevator
 	Checksum       string
 	SequenceNumber uint32
@@ -19,13 +20,16 @@ type ElevatorPacket struct {
 var sequenceNumbers = make(map[string]uint32)
 var sequenceNumbersMutex sync.Mutex
 
-func TransmitRecieve(elevatorUpdateToNetworkCh <-chan elevator.Elevator,
+func TransmitRecieve(thisId string,
+    elevatorUpdateToNetworkCh <-chan elevator.Elevator,
 	elevatorUpdateFromNetworkCh chan<- elevator.Elevator,
-	elevatorTxCh chan<- ElevatorPacket,
-	elevatorRxCh <-chan ElevatorPacket) {
-    scrap_cntr := 0
+	elevatorTxCh chan <- ElevatorPacket,
+	elevatorRxCh <- chan ElevatorPacket,
+    connectedPeersCh <- chan []string) {
+
 	bcastTimer := time.NewTicker(25 * time.Millisecond)
 	elevators := make(map[string]elevator.Elevator)
+    var connectedPeers []string
 	for {
 		select {
 		case e := <- elevatorUpdateToNetworkCh:
@@ -34,20 +38,34 @@ func TransmitRecieve(elevatorUpdateToNetworkCh <-chan elevator.Elevator,
 
 		case <-bcastTimer.C:
 			for _, elevator := range elevators {
-				packet := makeElevatorPacket(elevator)
+				packet := makeElevatorPacket(elevator, thisId)
 				elevatorTxCh <- packet
 			}
 		case packet := <-elevatorRxCh:
-			e, err := handleIncommingPacket(packet, elevators)
+			elevator, err := handleIncommingPacket(packet, elevators)
 			if err != nil {
-                scrap_cntr++
-                fmt.Println(scrap_cntr)
-			} else {
-                elevators[packet.Elevator.Id] = packet.Elevator
-                elevatorUpdateFromNetworkCh <- e
+                continue
             }
+
+            elevators[packet.Elevator.Id] = packet.Elevator
+            if packet.SenderID == thisId && len(connectedPeers) <= 1 {
+                elevatorUpdateFromNetworkCh <- elevator
+            } else if packet.SenderID != thisId && isElevatorAlive(connectedPeers, packet.Elevator.Id) {
+                elevatorUpdateFromNetworkCh <- elevator
+            }
+
+        case connectedPeers = <- connectedPeersCh:
 		}
 	}
+}
+
+func isElevatorAlive(elevators []string, elevatorId string) bool {
+    for _, id := range elevators {
+        if id == elevatorId {
+            return true
+        }
+    }
+    return false
 }
 
 func incrementSequenceNumber(Id string) {
@@ -62,7 +80,8 @@ func updateSequenceNumber(Id string, number uint32) {
 	sequenceNumbers[Id] = number
 }
 
-func handleIncommingPacket(packet ElevatorPacket, elevators map[string]elevator.Elevator) (elevator.Elevator, error) {
+func handleIncommingPacket(packet ElevatorPacket, 
+elevators map[string]elevator.Elevator) (elevator.Elevator, error) {
 	if shouldScrapPacket(&packet, elevators) {
 		return elevator.Elevator{}, errors.New("Packet scraped was scraped")
 	}
@@ -80,17 +99,29 @@ func shouldScrapPacket(packet *ElevatorPacket, elevators map[string]elevator.Ele
 	if packet.SequenceNumber < currentSequenceNumber {
 		return true
 
-	} else {
+    // } else if packet.SequenceNumber == currentSequenceNumber {
+    //     mergeRequests(packet, elevators[packet.Elevator.Id])
+    //     return false
+    } else {
 		updateSequenceNumber(packet.Elevator.Id, packet.SequenceNumber)
 		return false
 	}
 }
 
+func mergeRequests(packet *ElevatorPacket, localElevator elevator.Elevator) elevator.Elevator {
+    for f := localElevator.MinFloor; f <= localElevator.MaxFloor; f++ {
+        packet.Elevator.Requests.Up[f] = localElevator.Requests.Up[f] || packet.Elevator.Requests.Up[f]
+        packet.Elevator.Requests.Down[f] = localElevator.Requests.Down[f] || packet.Elevator.Requests.Down[f]
+        packet.Elevator.Requests.ToFloor[f] = localElevator.Requests.ToFloor[f] || packet.Elevator.Requests.ToFloor[f]
+    }
+    return packet.Elevator 
+}
 
-func makeElevatorPacket(e elevator.Elevator) ElevatorPacket {
+func makeElevatorPacket(e elevator.Elevator, id string) ElevatorPacket {
 	sequenceNumbersMutex.Lock()
 	defer sequenceNumbersMutex.Unlock()
     packet := ElevatorPacket{
+        SenderID: id,
 		SequenceNumber: sequenceNumbers[e.Id],
 		Checksum:       "",
 		Elevator:       e,

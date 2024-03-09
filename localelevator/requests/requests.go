@@ -1,6 +1,7 @@
 package requests
 
 import (
+    "sanntid/config"
 	"Driver-go/elevio"
 	"sanntid/localelevator/elevator"
 )
@@ -122,3 +123,28 @@ func ClearAtCurrentFloor(floor int, e elevator.Elevator) elevator.Requests {
     }
     return e.Requests
 }
+
+func MergeHallRequests(elevators map[string]elevator.Elevator) elevator.Requests {
+
+    reqs := elevator.Requests {
+        Up: make([]bool, config.NumFloors),
+        Down: make([]bool, config.NumFloors),
+        ToFloor: make([]bool, config.NumFloors),
+    }
+
+    for _, e := range elevators {
+        for f := e.MinFloor; f <= e.MaxFloor; f++ {
+            if e.Requests.Up[f] {
+                reqs.Up[f] = true
+            }
+            if e.Requests.Down[f] {
+                reqs.Down[f] = true
+            }
+            if e.Requests.ToFloor[f] {
+                reqs.ToFloor[f] = true
+            }
+        }
+    }
+    return reqs
+}
+

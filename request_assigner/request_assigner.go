@@ -2,11 +2,9 @@ package request_assigner
 
 import (
 	"Driver-go/elevio"
-	p "Network-go/network/peers"
 	"fmt"
-	"sanntid/config"
 	"sanntid/localelevator/elevator"
-	"sanntid/localelevator/elevatorcontroller"
+    "sanntid/localelevator/elevatorcontroller"
 	"sanntid/localelevator/requests"
 	"sort"
 )
@@ -21,7 +19,7 @@ var thisId string
 func DistributeRequests(thisElevator elevator.Elevator,
 	elevatorToNetwork chan <-  elevator.Elevator,
 	elevatorFromNetwork <- chan elevator.Elevator,
-	peerUpdateCh <-chan p.PeerUpdate,
+	lostElevatorsCh <-chan []string,
     peerTxEnable chan bool,
 ) {
 	elevatorStuckCh := make(chan bool)
@@ -34,8 +32,7 @@ func DistributeRequests(thisElevator elevator.Elevator,
 	elevators[thisId] = thisElevator
 	elevatorUpdateCh := make(chan elevator.Elevator)
 
-    var connectedElevators []string
-    var isStuck = false
+    // var isStuck = false
 
     elevatorToNetwork <- thisElevator
 
@@ -50,34 +47,31 @@ func DistributeRequests(thisElevator elevator.Elevator,
 	for {
 		select {
 		case floor := <-stopedAtFloor:
-			e, ok := elevators[thisId]
-            if !ok {
-            }
+			e := elevators[thisId]
 			e.CurrentFloor = floor
 			e.Requests = requests.ClearAtCurrentFloor(floor, e)
 			elevators[thisId] = e
-                elevatorToNetwork <- elevators[thisId]
+            elevatorToNetwork <- elevators[thisId]
 
-            if len(connectedElevators) == 0 {
+            if len(elevators) == 1 {
                 requestUpdateCh <- e.Requests
                 elevator.SetHallLights(e)
             }
 
 		case order := <-orderCh:
             e := AssignRequest(elevators, order)
-                elevatorToNetwork <- e
+            elevatorToNetwork <- e
 
-            if len(connectedElevators) == 0 {
+            if len(elevators) == 1 {
                 requestUpdateCh <- e.Requests
                 elevator.SetHallLights(e)
             }
             
-
-        case isStuck = <-elevatorStuckCh:
+        case isStuck := <-elevatorStuckCh:
             if isStuck {
                 lostElevator := elevators[thisId]
                 delete(elevators, lostElevator.Id)
-                if len(connectedElevators) >= 0 && len(elevators) >= 1 {
+                if len(elevators) >= 1 {
                     reassignOrders(lostElevator, elevators, elevatorToNetwork)
                 }
                 elevators[thisId] = lostElevator
@@ -91,41 +85,32 @@ func DistributeRequests(thisElevator elevator.Elevator,
             elevatorToNetwork <- e
 
 		case e := <-elevatorFromNetwork:
-            if isElevatorAlive(connectedElevators, e.Id) {
                 if e.Id == thisId {
                     elevators[e.Id] = e
                     requestUpdateCh <- e.Requests
                 }
 			    elevators[e.Id] = e
-                e.Requests = mergeAllHallReqs(elevators)
+                e.Requests = requests.MergeHallRequests(elevators)
                 elevator.SetHallLights(e)
-            }
+                if len(elevators) == 1 {
+                    requestUpdateCh <- e.Requests
+                }
 
-        case p := <- peerUpdateCh:
-            fmt.Println(p.Peers)
-            connectedElevators = p.Peers
-            for _, lostId := range p.Lost {
+        case lostElevators := <- lostElevatorsCh: 
+            for _, lostId := range lostElevators {
+                if lostId == thisId {
+                    continue
+                }
                 lostElevator := elevators[lostId]
 			    delete(elevators, lostId)
-                if len(connectedElevators) > 0 && len(elevators) >= 1 {
+                if len(elevators) >= 1 {
                     reassignOrders(lostElevator, elevators, elevatorToNetwork)
-                }
-                if lostId == thisId {
-                    elevators[thisId] = lostElevator
                 }
             }
 		}
 	}
 }
 
-func isElevatorAlive(elevators []string, elevatorId string) bool {
-    for _, id := range elevators {
-        if id == elevatorId {
-            return true
-        }
-    }
-    return false
-}
 
 // Reassigns the orders of the lostElevator
 func reassignOrders(lostElevator elevator.Elevator, 
@@ -180,7 +165,6 @@ func TimeToIdle(e_sim elevator.Elevator) float32 {
 	for {
 		if requests.ShouldStop(e) {
 			e.Requests = requests.ClearAtCurrentFloor(e.CurrentFloor, e)
-            // e = requests.SimClearRequest(e_sim)
 			duration += DoorOpenTime
 			e.Dir, _ = requests.GetNewDirectionAndState(e)
 			if e.Dir == elevio.MD_Stop {
@@ -232,28 +216,5 @@ func AssignRequest(elevators map[string]elevator.Elevator,
 	return e
 }
 
-func mergeAllHallReqs(elevators map[string]elevator.Elevator) elevator.Requests {
-
-    reqs := elevator.Requests {
-        Up: make([]bool, config.NFloors),
-        Down: make([]bool, config.NFloors),
-        ToFloor: make([]bool, config.NFloors),
-    }
-
-    for _, e := range elevators {
-        for f := e.MinFloor; f <= e.MaxFloor; f++ {
-            if e.Requests.Up[f] {
-                reqs.Up[f] = true
-            }
-            if e.Requests.Down[f] {
-                reqs.Down[f] = true
-            }
-            if e.Requests.ToFloor[f] {
-                reqs.ToFloor[f] = true
-            }
-        }
-    }
-    return reqs
-}
 
 
