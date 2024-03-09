@@ -15,7 +15,6 @@ const (
 )
 
 var thisId string
-//
 func DistributeRequests(thisElevator elevator.Elevator,
 	elevatorToNetwork chan <-  elevator.Elevator,
 	elevatorFromNetwork <- chan elevator.Elevator,
@@ -31,8 +30,6 @@ func DistributeRequests(thisElevator elevator.Elevator,
 	thisId = thisElevator.Id
 	elevators[thisId] = thisElevator
 	elevatorUpdateCh := make(chan elevator.Elevator)
-
-    // var isStuck = false
 
     elevatorToNetwork <- thisElevator
 
@@ -69,6 +66,7 @@ func DistributeRequests(thisElevator elevator.Elevator,
             
         case isStuck := <-elevatorStuckCh:
             if isStuck {
+                // Reassign my own requests when stuck
                 lostElevator := elevators[thisId]
                 delete(elevators, lostElevator.Id)
                 if len(elevators) >= 1 {
@@ -86,7 +84,6 @@ func DistributeRequests(thisElevator elevator.Elevator,
 
 		case e := <-elevatorFromNetwork:
                 if e.Id == thisId {
-                    elevators[e.Id] = e
                     requestUpdateCh <- e.Requests
                 }
 			    elevators[e.Id] = e
@@ -97,6 +94,7 @@ func DistributeRequests(thisElevator elevator.Elevator,
                 }
 
         case lostElevators := <- lostElevatorsCh: 
+            // Reassign the lost elevators requests
             for _, lostId := range lostElevators {
                 if lostId == thisId {
                     continue

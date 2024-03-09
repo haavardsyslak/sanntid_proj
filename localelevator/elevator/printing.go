@@ -4,9 +4,14 @@ import (
     "fmt"
     "strings"
     "Driver-go/elevio"
+    "os"
+    "os/exec"
 )
 
 func PrintElevator(e Elevator) {
+    cmd := exec.Command("clear")
+    cmd.Stdout = os.Stdout
+    cmd.Run()
 	fmt.Printf("Current floor: %d\n", e.CurrentFloor)
     fmt.Printf("ID: %s\n", e.Id)
 	printState(e)

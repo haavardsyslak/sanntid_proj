@@ -9,8 +9,8 @@ import (
 	"os"
 	"sanntid/localelevator/elevator"
 	"sanntid/packethandler"
+	"sanntid/recovery"
 	"sanntid/request_assigner"
-	"time"
 )
 
 func main() {
@@ -30,13 +30,7 @@ func main() {
 	elevatorToNetworkCh := make(chan elevator.Elevator, 1000)
 	elevatorFromNetworkCh := make(chan elevator.Elevator, 1000)
 
-	go peers.Transmitter(15647, id, peerTxEnable)
-	go peers.Receiver(15647, peerUpdateCh)
-
-	go bcast.Transmitter(16569, elevatorTxCh)
-	go bcast.Receiver(16569, elevatorRxCh)
-
-	go packethandler.TransmitRecieve(id,
+	go packethandler.HandleElevatorPackets(id,
 		elevatorToNetworkCh,
 		elevatorFromNetworkCh,
 		elevatorTxCh,
@@ -44,8 +38,18 @@ func main() {
 		connectedPeersCh,
 	)
 
+	go peers.Transmitter(15647, id, peerTxEnable)
+	go peers.Receiver(15647, peerUpdateCh)
+
+	go bcast.Transmitter(16569, elevatorTxCh)
+	go bcast.Receiver(16569, elevatorRxCh)
+
+    go peers.PeerUpdateListener(peerUpdateCh, connectedPeersCh, lostPeersCh)
+
+
+
 	e := elevator.New(id)
-	networkElevator, hasRecovered := recoverFromNetwork(id, elevatorFromNetworkCh)
+	networkElevator, hasRecovered := recovery.AttemptNetworkRecovery(id, elevatorFromNetworkCh)
 
 	if hasRecovered {
 		elevator.Init(port, true)
@@ -61,16 +65,9 @@ func main() {
 		lostPeersCh,
 		peerTxEnable,
 	)
-
-	for {
-		select {
-		case p := <-peerUpdateCh:
-			fmt.Println(p.Peers)
-			connectedPeersCh <- p.Peers
-			lostPeersCh <- p.Lost
-		}
-	}
+    for {}
 }
+
 
 func parseCliArgs(id *string, port *int) {
 
@@ -90,17 +87,3 @@ func parseCliArgs(id *string, port *int) {
 	}
 }
 
-func recoverFromNetwork(id string,
-	elevatorFromNetworkCh chan elevator.Elevator) (elevator.Elevator, bool) {
-	timeout := time.NewTicker(500 * time.Millisecond)
-	for {
-		select {
-		case <-timeout.C:
-			return elevator.Elevator{}, false
-		case e := <-elevatorFromNetworkCh:
-			if e.Id == id {
-				return e, true
-			}
-		}
-	}
-}

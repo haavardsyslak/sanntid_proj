@@ -2,11 +2,8 @@ package elevatorcontroller
 
 import (
 	"Driver-go/elevio"
-	// "fmt"
 	"sanntid/localelevator/elevator"
     "sanntid/localelevator/requests"
-	"os"
-	"os/exec"
 	"time"
 )
 
@@ -20,13 +17,13 @@ func ListenAndServe(
 	e elevator.Elevator,
 	requestUpdateCh chan elevator.Requests,
 	elevatorStuckCh chan bool,
-	stopedAtFloor chan int,
-	orderChan chan elevator.Order,
+	stoppedAtFloor chan int,
+	orderCh chan elevator.Order,
 	elevatorUpdateCh chan elevator.Elevator,
 	printEnabled bool,
 ) {
 	buttonCh := make(chan elevio.ButtonEvent)
-	floorSensCh := make(chan int)
+	floorSensorCh := make(chan int)
 	stopButtonCh := make(chan bool)
 	onDoorsClosingCh := make(chan bool)
 	obstructionCh := make(chan bool)
@@ -37,7 +34,7 @@ func ListenAndServe(
     floorTimer := time.NewTicker(floorTimeout)
 
 	watchdogTicker := time.NewTicker(time.Millisecond * 250)
-	elevator.PollElevatorIO(buttonCh, floorSensCh, stopButtonCh, obstructionCh)
+	elevator.PollElevatorIO(buttonCh, floorSensorCh, stopButtonCh, obstructionCh)
 
 	for {
 		select {
@@ -52,20 +49,20 @@ func ListenAndServe(
             }
 
 		case event := <-buttonCh:
-			orderChan <- elevator.Order{
+			orderCh <- elevator.Order{
 				Type:    event.Button,
 				AtFloor: event.Floor,
 			}
 
-		case event := <-floorSensCh:
-            floorTimer.Reset(doorTimeout)
+		case event := <-floorSensorCh:
+            floorTimer.Reset(floorTimeout)
             elevatorStuckCh <- false
 			handleFloorArrival(event, &e, onDoorsClosingCh, obstructionCh)
             elevatorUpdateCh <- e
 
 		case <-onDoorsClosingCh:
             elevatorStuckCh <- false
-			stopedAtFloor <- e.CurrentFloor
+			stoppedAtFloor <- e.CurrentFloor
 			e.Requests = <-requestUpdateCh
             elevator.SetCabLights(e)
 			handleDoorsClosing(&e, onDoorsClosingCh, obstructionCh)
@@ -73,9 +70,6 @@ func ListenAndServe(
 
         case <- watchdogTicker.C:
 			if printEnabled {
-				cmd := exec.Command("clear")
-				cmd.Stdout = os.Stdout
-				cmd.Run()
 				elevator.PrintElevator(e)
 			}
 			if e.State != elevator.MOVING {
@@ -91,19 +85,6 @@ func ListenAndServe(
             
 		}
 	}
-}
-
-func hasNewRequest(e elevator.Elevator, new elevator.Requests) bool {
-    newRequest := false
-	for f := e.MinFloor; f <= e.MaxFloor; f++ {
-		if e.Requests.Up[f] != new.Up[f] ||
-			e.Requests.Down[f] != new.Down[f] ||
-			e.Requests.ToFloor[f] != new.ToFloor[f] {
-                newRequest = true
-                break
-            }
-        }
-        return newRequest
 }
 
 func handleRequestUpdate(e *elevator.Elevator,
@@ -131,23 +112,21 @@ func handleDoorsClosing(e *elevator.Elevator,
 	}
 }
 
-// TODO: return value is not used
 func handleFloorArrival(floor int,
 	e *elevator.Elevator,
 	onDoorsClosingCh chan bool,
-	obstructionCh chan bool) bool {
+	obstructionCh chan bool) {
 	e.CurrentFloor = floor
     elevio.SetFloorIndicator(floor)
 	if e.State == elevator.IDLE || e.State == elevator.DOOR_OPEN {
         elevator.Stop()
-		return false
+        return
 	}
     if requests.ShouldStop(*e) {
         elevator.Stop()
         e.State = elevator.DOOR_OPEN
         go elevator.OpenDoors(onDoorsClosingCh, obstructionCh)
     }
-	return false
 }
 
 
@@ -155,6 +134,7 @@ func setInitialState(e elevator.Elevator, onDoorClosingCh chan bool, obstruction
     elevator.PrintElevator(e)
     elevio.SetMotorDirection(e.Dir) 
     elevator.SetCabLights(e)
+    elevio.SetDoorOpenLamp(false)
     if e.State == elevator.DOOR_OPEN {
         go elevator.OpenDoors(onDoorClosingCh, obstructionCh)
     }

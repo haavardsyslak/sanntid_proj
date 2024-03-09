@@ -20,14 +20,14 @@ type ElevatorPacket struct {
 var sequenceNumbers = make(map[string]uint32)
 var sequenceNumbersMutex sync.Mutex
 
-func TransmitRecieve(thisId string,
+func HandleElevatorPackets(thisId string,
     elevatorUpdateToNetworkCh <-chan elevator.Elevator,
 	elevatorUpdateFromNetworkCh chan<- elevator.Elevator,
 	elevatorTxCh chan <- ElevatorPacket,
 	elevatorRxCh <- chan ElevatorPacket,
     connectedPeersCh <- chan []string) {
 
-	bcastTimer := time.NewTicker(25 * time.Millisecond)
+	bcastTimer := time.NewTicker(5 * time.Millisecond)
 	elevators := make(map[string]elevator.Elevator)
     var connectedPeers []string
 	for {
@@ -48,12 +48,12 @@ func TransmitRecieve(thisId string,
             }
 
             elevators[packet.Elevator.Id] = packet.Elevator
+
             if packet.SenderID == thisId && len(connectedPeers) <= 1 {
                 elevatorUpdateFromNetworkCh <- elevator
             } else if packet.SenderID != thisId && isElevatorAlive(connectedPeers, packet.Elevator.Id) {
                 elevatorUpdateFromNetworkCh <- elevator
             }
-
         case connectedPeers = <- connectedPeersCh:
 		}
 	}
@@ -84,7 +84,9 @@ func handleIncommingPacket(packet ElevatorPacket,
 elevators map[string]elevator.Elevator) (elevator.Elevator, error) {
 	if shouldScrapPacket(&packet, elevators) {
 		return elevator.Elevator{}, errors.New("Packet scraped was scraped")
-	}
+	} else {
+		updateSequenceNumber(packet.Elevator.Id, packet.SequenceNumber)
+    }
 	return packet.Elevator, nil
 }
 
@@ -92,29 +94,16 @@ func shouldScrapPacket(packet *ElevatorPacket, elevators map[string]elevator.Ele
 	sequenceNumbersMutex.Lock()
 	currentSequenceNumber := sequenceNumbers[packet.Elevator.Id]
 	sequenceNumbersMutex.Unlock()
+
     if !verifyChecksum(*packet) {
-        fmt.Println("Cheksum failed")
         return true 
     }
 	if packet.SequenceNumber < currentSequenceNumber {
 		return true
 
-    // } else if packet.SequenceNumber == currentSequenceNumber {
-    //     mergeRequests(packet, elevators[packet.Elevator.Id])
-    //     return false
     } else {
-		updateSequenceNumber(packet.Elevator.Id, packet.SequenceNumber)
 		return false
 	}
-}
-
-func mergeRequests(packet *ElevatorPacket, localElevator elevator.Elevator) elevator.Elevator {
-    for f := localElevator.MinFloor; f <= localElevator.MaxFloor; f++ {
-        packet.Elevator.Requests.Up[f] = localElevator.Requests.Up[f] || packet.Elevator.Requests.Up[f]
-        packet.Elevator.Requests.Down[f] = localElevator.Requests.Down[f] || packet.Elevator.Requests.Down[f]
-        packet.Elevator.Requests.ToFloor[f] = localElevator.Requests.ToFloor[f] || packet.Elevator.Requests.ToFloor[f]
-    }
-    return packet.Elevator 
 }
 
 func makeElevatorPacket(e elevator.Elevator, id string) ElevatorPacket {
