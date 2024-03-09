@@ -83,15 +83,16 @@ func DistributeRequests(thisElevator elevator.Elevator,
             elevatorToNetwork <- e
 
 		case e := <-elevatorFromNetwork:
-                if e.Id == thisId {
-                    requestUpdateCh <- e.Requests
-                }
-			    elevators[e.Id] = e
-                e.Requests = requests.MergeHallRequests(elevators)
-                elevator.SetHallLights(e)
-                if len(elevators) == 1 {
-                    requestUpdateCh <- e.Requests
-                }
+            fmt.Println("mau")
+            if e.Id == thisId {
+                requestUpdateCh <- e.Requests
+            }
+            elevators[e.Id] = e
+            e.Requests = requests.MergeHallRequests(elevators)
+            elevator.SetHallLights(e)
+            if len(elevators) == 1 {
+                requestUpdateCh <- e.Requests
+            }
 
         case lostElevators := <- lostElevatorsCh: 
             // Reassign the lost elevators requests
@@ -178,7 +179,6 @@ func TimeToIdle(e_sim elevator.Elevator) float32 {
 func AssignRequest(elevators map[string]elevator.Elevator,
     order elevator.Order) elevator.Elevator {
     if order.Type == elevio.BT_Cab {
-        fmt.Println("CAB REQ")
         e := elevators[thisId]
         e.Requests = requests.UpdateRequests(order, e.Requests)
         return e

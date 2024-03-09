@@ -30,6 +30,7 @@ func main() {
 	elevatorToNetworkCh := make(chan elevator.Elevator, 1000)
 	elevatorFromNetworkCh := make(chan elevator.Elevator, 1000)
 
+
 	go packethandler.HandleElevatorPackets(id,
 		elevatorToNetworkCh,
 		elevatorFromNetworkCh,
@@ -44,8 +45,8 @@ func main() {
 	go bcast.Transmitter(16569, elevatorTxCh)
 	go bcast.Receiver(16569, elevatorRxCh)
 
-    go peers.PeerUpdateListener(peerUpdateCh, connectedPeersCh, lostPeersCh)
 
+    go peers.PeerUpdateListener(peerUpdateCh, connectedPeersCh, lostPeersCh)
 
 
 	e := elevator.New(id)

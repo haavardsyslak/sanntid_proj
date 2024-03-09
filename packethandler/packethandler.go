@@ -47,16 +47,13 @@ func HandleElevatorPackets(thisId string,
                 continue
             }
 
-            elevators[packet.Elevator.Id] = packet.Elevator
-
-            if packet.SenderID == thisId && len(connectedPeers) <= 1 {
-                elevatorUpdateFromNetworkCh <- elevator
-            } else if packet.SenderID != thisId && isElevatorAlive(connectedPeers, packet.Elevator.Id) {
+            elevators[packet.Elevator.Id] = elevator
+            if (packet.Elevator.Id == thisId || isElevatorAlive(connectedPeers, packet.Elevator.Id)) && packet.SenderID != thisId {
                 elevatorUpdateFromNetworkCh <- elevator
             }
         case connectedPeers = <- connectedPeersCh:
-		}
-	}
+        }
+    }
 }
 
 func isElevatorAlive(elevators []string, elevatorId string) bool {
