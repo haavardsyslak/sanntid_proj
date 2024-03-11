@@ -2,8 +2,9 @@ package elevatorcontroller
 
 import (
 	"Driver-go/elevio"
+	// "fmt"
 	"sanntid/localelevator/elevator"
-    "sanntid/localelevator/requests"
+	"sanntid/localelevator/requests"
 	"time"
 )
 
@@ -91,7 +92,7 @@ func handleRequestUpdate(e *elevator.Elevator,
 	onDoorClosingCh chan bool,
 	obstructionCh chan bool) {
 	switch e.State {
-	case elevator.IDLE:
+	case elevator.IDLE :
 		e.Dir, e.State = requests.GetNewDirectionAndState(*e)
 		if e.State == elevator.DOOR_OPEN {
 			elevator.Stop()
@@ -99,6 +100,10 @@ func handleRequestUpdate(e *elevator.Elevator,
 		} else {
 			elevio.SetMotorDirection(e.Dir)
 		}
+    case elevator.DOOR_OPEN:
+        elevator.Stop()
+    case elevator.MOVING:
+        elevio.SetMotorDirection(e.Dir)
 	}
 }
 

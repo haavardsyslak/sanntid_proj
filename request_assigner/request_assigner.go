@@ -2,7 +2,6 @@ package request_assigner
 
 import (
 	"Driver-go/elevio"
-	"fmt"
 	"sanntid/localelevator/elevator"
     "sanntid/localelevator/elevatorcontroller"
 	"sanntid/localelevator/requests"
@@ -60,7 +59,8 @@ func DistributeRequests(thisElevator elevator.Elevator,
             elevatorToNetwork <- e
 
             if len(elevators) == 1 {
-                requestUpdateCh <- e.Requests
+                
+                requestUpdateCh <- requests.MergeHallRequests(elevators)
                 elevator.SetHallLights(e)
             }
             
@@ -83,7 +83,6 @@ func DistributeRequests(thisElevator elevator.Elevator,
             elevatorToNetwork <- e
 
 		case e := <-elevatorFromNetwork:
-            fmt.Println("mau")
             if e.Id == thisId {
                 requestUpdateCh <- e.Requests
             }
