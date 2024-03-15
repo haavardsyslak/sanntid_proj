@@ -8,29 +8,29 @@ import (
     "os/exec"
 )
 
-func PrintElevator(e Elevator) {
+func PrintElevator(elevatorStatus Elevator) {
     cmd := exec.Command("clear")
     cmd.Stdout = os.Stdout
     cmd.Run()
-	fmt.Printf("Current floor: %d\n", e.CurrentFloor)
-    fmt.Printf("ID: %s\n", e.Id)
-	printState(e)
-	printDir(e.Dir)
-	printRequests(e)
+	fmt.Printf("Current floor: %d\n", elevatorStatus.CurrentFloor)
+    fmt.Printf("ID: %s\n", elevatorStatus.Id)
+	printState(elevatorStatus)
+	printDirection(elevatorStatus.Dir)
+	printRequests(elevatorStatus)
 }
 
-func printRequests(e Elevator) {
+func printRequests(elevatorStatus Elevator) {
 	up := make([]string, 0)
 	down := make([]string, 0)
 	to_floor := make([]string, 0)
-	for f := e.MinFloor; f <= e.MaxFloor; f++ {
-		if e.Requests.Up[f] {
+	for f := elevatorStatus.MinFloor; f <= elevatorStatus.MaxFloor; f++ {
+		if elevatorStatus.Requests.Up[f] {
 			up = append(up, fmt.Sprintf("%d", f))
 		}
-		if e.Requests.Down[f] {
+		if elevatorStatus.Requests.Down[f] {
 			down = append(down, fmt.Sprintf("%d", f))
 		}
-		if e.Requests.ToFloor[f] {
+		if elevatorStatus.Requests.ToFloor[f] {
 			to_floor = append(to_floor, fmt.Sprintf("%d", f))
 		}
 	}
@@ -40,8 +40,8 @@ func printRequests(e Elevator) {
 	fmt.Printf("\tToFloor: %s\n", strings.Join(to_floor, ","))
 }
 
-func printState(e Elevator) {
-	switch e.State {
+func printState(elevatorStatus Elevator) {
+	switch elevatorStatus.State {
 	case IDLE:
 		fmt.Println("State: Idle")
 	case MOVING:
@@ -51,8 +51,8 @@ func printState(e Elevator) {
 	}
 }
 
-func printDir(dir elevio.MotorDirection) {
-	switch dir {
+func printDirection(direction elevio.MotorDirection) {
+	switch direction {
 	case elevio.MD_Stop:
 		fmt.Println("Dir: Stop")
 	case elevio.MD_Up:

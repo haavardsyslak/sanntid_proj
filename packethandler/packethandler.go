@@ -48,13 +48,17 @@ func HandleElevatorPackets(thisId string,
 			}
 
 			elevators[packet.Elevator.Id] = elevator
-			if (packet.Elevator.Id == thisId || isElevatorAlive(connectedPeers, packet.Elevator.Id)) &&
-				(packet.SenderID != thisId || len(connectedPeers) <= 1) {
-				elevatorUpdateFromNetworkCh <- elevator
+			if shouldForwardElevatorPacket(packet, connectedPeers, thisId) {
+				elevatorUpdateFromNetworkCh <- packet.Elevator
 			}
 		case connectedPeers = <-connectedPeersCh:
 		}
 	}
+}
+
+func shouldForwardElevatorPacket(packet ElevatorPacket, connectedPeers []string, thisId string) bool {
+	return (packet.Elevator.Id == thisId || isElevatorAlive(connectedPeers, packet.Elevator.Id)) &&
+		(packet.SenderID != thisId || len(connectedPeers) <= 1)
 }
 
 func isElevatorAlive(elevators []string, elevatorId string) bool {
@@ -80,6 +84,7 @@ func updateSequenceNumber(Id string, number uint32) {
 
 func handleIncommingPacket(packet ElevatorPacket,
 	elevators map[string]elevator.Elevator) (elevator.Elevator, error) {
+
 	if shouldScrapPacket(&packet, elevators) {
 		return elevator.Elevator{}, errors.New("Packet scraped was scraped")
 	} else {
@@ -104,14 +109,14 @@ func shouldScrapPacket(packet *ElevatorPacket, elevators map[string]elevator.Ele
 	}
 }
 
-func makeElevatorPacket(e elevator.Elevator, id string) ElevatorPacket {
+func makeElevatorPacket(elevator elevator.Elevator, id string) ElevatorPacket {
 	sequenceNumbersMutex.Lock()
 	defer sequenceNumbersMutex.Unlock()
 	packet := ElevatorPacket{
 		SenderID:       id,
-		SequenceNumber: sequenceNumbers[e.Id],
+		SequenceNumber: sequenceNumbers[elevator.Id],
 		Checksum:       "",
-		Elevator:       e,
+		Elevator:       elevator,
 	}
 	packet.Checksum = computeChecksum(packet)
 	return packet

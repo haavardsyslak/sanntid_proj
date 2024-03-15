@@ -53,11 +53,11 @@ func New(Id string) Elevator {
 	}
 }
 
-func Init(port int, fromNetwork bool) int {
-    // Init elevator
-    // Run elevator to known floor
+func Init(port int, stateIsKnown bool) int {
+    // Init elevator hw
     elevio.Init(fmt.Sprintf("localhost:%d", port), config.NumFloors)
-    if !fromNetwork {
+    // Run elevator to known floor if its state is unknown
+    if !stateIsKnown {
         floor := elevio.GetFloor()
         if floor == -1 {
             floorSensCh := make(chan int)

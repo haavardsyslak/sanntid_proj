@@ -8,18 +8,19 @@ import (
 	"time"
 )
 
-const doorTimeout time.Duration = 5 * time.Second
+const doorTimeout time.Duration = 10 * time.Second
 const floorTimeout time.Duration = 5 * time.Second
+
 /*
- Listen for orders (button presses)
- and serve the currently active requests
+Listen for orders (button presses)
+and serve the currently active requests
 */
-func ListenAndServe(
-	e elevator.Elevator,
+func ControlSingleElevator(
+	thisElevator elevator.Elevator,
 	requestUpdateCh chan elevator.Requests,
 	elevatorStuckCh chan bool,
 	stoppedAtFloor chan int,
-	orderCh chan elevator.Order,
+	newOrderCh chan elevator.Order,
 	elevatorUpdateCh chan elevator.Elevator,
 	printEnabled bool,
 ) {
@@ -28,119 +29,117 @@ func ListenAndServe(
 	stopButtonCh := make(chan bool)
 	onDoorsClosingCh := make(chan bool)
 	obstructionCh := make(chan bool)
-
-    setInitialState(e, onDoorsClosingCh, obstructionCh)
-    
-    doorTimer := time.NewTicker(doorTimeout)
-    floorTimer := time.NewTicker(floorTimeout)
-
-	watchdogTicker := time.NewTicker(time.Millisecond * 250)
 	elevator.PollElevatorIO(buttonCh, floorSensorCh, stopButtonCh, obstructionCh)
+
+	setInitialState(thisElevator, onDoorsClosingCh, obstructionCh)
+
+	doorTimer := time.NewTicker(doorTimeout)
+	floorTimer := time.NewTicker(floorTimeout)
+	watchdogTicker := time.NewTicker(time.Millisecond * 250)
 
 	for {
 		select {
-		case req := <-requestUpdateCh:
-            e.Requests = req
-            elevator.SetCabLights(e)
-            lastState := e.State
-            lastDir := e.Dir
-            handleRequestUpdate(&e, onDoorsClosingCh, obstructionCh)
-            if lastDir != e.Dir || lastState != e.State {
-                elevatorUpdateCh <- e
-            }
-
-		case event := <-buttonCh:
-			orderCh <- elevator.Order{
-				Type:    event.Button,
-				AtFloor: event.Floor,
+		case requests := <-requestUpdateCh:
+			thisElevator.Requests = requests
+			elevator.SetCabLights(thisElevator)
+			lastState := thisElevator.State
+			lastDir := thisElevator.Dir
+			handleRequestUpdate(&thisElevator, onDoorsClosingCh, obstructionCh)
+			if lastDir != thisElevator.Dir || lastState != thisElevator.State {
+				elevatorUpdateCh <- thisElevator
 			}
 
-		case event := <-floorSensorCh:
-            floorTimer.Reset(floorTimeout)
-            elevatorStuckCh <- false
-			handleFloorArrival(event, &e, onDoorsClosingCh, obstructionCh)
-            elevatorUpdateCh <- e
+		case buttonPress := <-buttonCh:
+			newOrderCh <- elevator.Order{
+				Type:    buttonPress.Button,
+				AtFloor: buttonPress.Floor,
+			}
+
+		case newFloor := <-floorSensorCh:
+			floorTimer.Reset(floorTimeout)
+			elevatorStuckCh <- false
+			handleFloorArrival(newFloor, &thisElevator, onDoorsClosingCh, obstructionCh)
+			elevatorUpdateCh <- thisElevator
 
 		case <-onDoorsClosingCh:
-            elevatorStuckCh <- false
-			stoppedAtFloor <- e.CurrentFloor
-			e.Requests = <-requestUpdateCh
-            elevator.SetCabLights(e)
-			handleDoorsClosing(&e, onDoorsClosingCh, obstructionCh)
-			elevatorUpdateCh <- e
+			elevatorStuckCh <- false
+			stoppedAtFloor <- thisElevator.CurrentFloor
+			thisElevator.Requests = <-requestUpdateCh
+			elevator.SetCabLights(thisElevator)
+			handleDoorsClosing(&thisElevator, onDoorsClosingCh, obstructionCh)
+			elevatorUpdateCh <- thisElevator
 
-        case <- watchdogTicker.C:
+		case <-watchdogTicker.C:
 			if printEnabled {
-				elevator.PrintElevator(e)
+				elevator.PrintElevator(thisElevator)
 			}
-			if e.State != elevator.MOVING {
-                floorTimer.Reset(floorTimeout)
+			if thisElevator.State != elevator.MOVING {
+				floorTimer.Reset(floorTimeout)
 			}
-			if e.State != elevator.DOOR_OPEN {
+			if thisElevator.State != elevator.DOOR_OPEN {
 				doorTimer.Reset(doorTimeout)
 			}
-        case <- floorTimer.C:
-            elevatorStuckCh <- true
-        case <- doorTimer.C:
-            elevatorStuckCh <- true
-            
+		case <-floorTimer.C:
+			elevatorStuckCh <- true
+		case <-doorTimer.C:
+			elevatorStuckCh <- true
+
 		}
 	}
 }
 
-func handleRequestUpdate(e *elevator.Elevator,
+func handleRequestUpdate(elev *elevator.Elevator,
 	onDoorClosingCh chan bool,
 	obstructionCh chan bool) {
-	switch e.State {
-	case elevator.IDLE :
-		e.Dir, e.State = requests.GetNewDirectionAndState(*e)
-		if e.State == elevator.DOOR_OPEN {
+	switch elev.State {
+	case elevator.IDLE:
+		elev.Dir, elev.State = requests.GetNewDirectionAndState(*elev)
+		if elev.State == elevator.DOOR_OPEN {
 			elevator.Stop()
 			go elevator.OpenDoors(onDoorClosingCh, obstructionCh)
 		} else {
-			elevio.SetMotorDirection(e.Dir)
+			elevio.SetMotorDirection(elev.Dir)
 		}
-    case elevator.DOOR_OPEN:
-        elevator.Stop()
-    case elevator.MOVING:
-        elevio.SetMotorDirection(e.Dir)
+	case elevator.DOOR_OPEN:
+		elevator.Stop()
+	case elevator.MOVING:
+		elevio.SetMotorDirection(elev.Dir)
 	}
 }
 
-func handleDoorsClosing(e *elevator.Elevator,
+func handleDoorsClosing(elev *elevator.Elevator,
 	onDoorClosingCh chan bool,
 	obstructionCh chan bool) {
-	e.Dir, e.State = requests.GetNewDirectionAndState(*e)
-	elevio.SetMotorDirection(e.Dir)
-	if e.State == elevator.DOOR_OPEN {
+	elev.Dir, elev.State = requests.GetNewDirectionAndState(*elev)
+	elevio.SetMotorDirection(elev.Dir)
+	if elev.State == elevator.DOOR_OPEN {
 		go elevator.OpenDoors(onDoorClosingCh, obstructionCh)
 	}
 }
 
 func handleFloorArrival(floor int,
-	e *elevator.Elevator,
+	elev *elevator.Elevator,
 	onDoorsClosingCh chan bool,
 	obstructionCh chan bool) {
-	e.CurrentFloor = floor
-    elevio.SetFloorIndicator(floor)
-	if e.State == elevator.IDLE || e.State == elevator.DOOR_OPEN {
-        elevator.Stop()
-        return
+	elev.CurrentFloor = floor
+	elevio.SetFloorIndicator(floor)
+	if elev.State == elevator.IDLE || elev.State == elevator.DOOR_OPEN {
+		elevator.Stop()
+		return
 	}
-    if requests.ShouldStop(*e) {
-        elevator.Stop()
-        e.State = elevator.DOOR_OPEN
-        go elevator.OpenDoors(onDoorsClosingCh, obstructionCh)
-    }
+	if requests.ShouldStop(*elev) {
+		elevator.Stop()
+		elev.State = elevator.DOOR_OPEN
+		go elevator.OpenDoors(onDoorsClosingCh, obstructionCh)
+	}
 }
 
-
-func setInitialState(e elevator.Elevator, onDoorClosingCh chan bool, obstructionCh chan bool) {
-    elevator.PrintElevator(e)
-    elevio.SetMotorDirection(e.Dir) 
-    elevator.SetCabLights(e)
-    elevio.SetDoorOpenLamp(false)
-    if e.State == elevator.DOOR_OPEN {
-        go elevator.OpenDoors(onDoorClosingCh, obstructionCh)
-    }
+func setInitialState(elev elevator.Elevator, onDoorClosingCh chan bool, obstructionCh chan bool) {
+	elevator.PrintElevator(elev)
+	elevio.SetMotorDirection(elev.Dir)
+	elevator.SetCabLights(elev)
+	elevio.SetDoorOpenLamp(false)
+	if elev.State == elevator.DOOR_OPEN {
+		go elevator.OpenDoors(onDoorClosingCh, obstructionCh)
+	}
 }

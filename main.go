@@ -45,22 +45,21 @@ func main() {
 	go bcast.Transmitter(16569, elevatorTxCh)
 	go bcast.Receiver(16569, elevatorRxCh)
 
-
     go peers.PeerUpdateListener(peerUpdateCh, connectedPeersCh, lostPeersCh)
 
 
-	e := elevator.New(id)
+	thisElevator := elevator.New(id)
 	networkElevator, hasRecovered := recovery.AttemptNetworkRecovery(id, elevatorFromNetworkCh)
 
 	if hasRecovered {
 		elevator.Init(port, true)
-		e = networkElevator
+		thisElevator = networkElevator
 	} else {
 		floor := elevator.Init(port, false)
-		e.CurrentFloor = floor
+		thisElevator.CurrentFloor = floor
 	}
 
-	go request_assigner.DistributeRequests(e,
+	go request_assigner.DistributeRequests(thisElevator,
 		elevatorToNetworkCh,
 		elevatorFromNetworkCh,
 		lostPeersCh,

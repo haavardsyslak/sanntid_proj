@@ -18,45 +18,45 @@ func UpdateRequests(order elevator.Order, requests elevator.Requests) elevator.R
 	return requests
 }
 
-func HasRequestBelow(elevator elevator.Elevator) bool {
-	for f := elevator.CurrentFloor - 1; f >= elevator.MinFloor; f-- {
-		if elevator.Requests.Down[f] ||
-			elevator.Requests.ToFloor[f] ||
-			elevator.Requests.Up[f] {
+func HasRequestBelow(elev elevator.Elevator) bool {
+	for floor := elev.CurrentFloor - 1; floor >= elev.MinFloor; floor-- {
+		if elev.Requests.Down[floor] ||
+			elev.Requests.ToFloor[floor] ||
+			elev.Requests.Up[floor] {
 			return true
 		}
 	}
 	return false
 }
 
-func HasRequestAbove(elevator elevator.Elevator) bool {
-	for f := elevator.CurrentFloor + 1; f <= elevator.MaxFloor; f++ {
-		if elevator.Requests.Up[f] ||
-			elevator.Requests.ToFloor[f] ||
-			elevator.Requests.Down[f] {
+func HasRequestAbove(elev elevator.Elevator) bool {
+	for floor := elev.CurrentFloor + 1; floor <= elev.MaxFloor; floor++ {
+		if elev.Requests.Up[floor] ||
+			elev.Requests.ToFloor[floor] ||
+			elev.Requests.Down[floor] {
 			return true
 		}
 	}
 	return false
 }
 
-func HasRequestHere(elevator elevator.Elevator) bool {
-	return (elevator.Requests.Up[elevator.CurrentFloor] ||
-		elevator.Requests.Down[elevator.CurrentFloor] ||
-		elevator.Requests.ToFloor[elevator.CurrentFloor])
+func HasRequestHere(elev elevator.Elevator) bool {
+	return (elev.Requests.Up[elev.CurrentFloor] ||
+		elev.Requests.Down[elev.CurrentFloor] ||
+		elev.Requests.ToFloor[elev.CurrentFloor])
 }
 
 
-func ShouldStop(e elevator.Elevator) (bool) {
-    switch(e.Dir){
+func ShouldStop(elev elevator.Elevator) (bool) {
+    switch(elev.Dir){
     case elevio.MD_Down: 
-        return e.Requests.Down[e.CurrentFloor] ||
-        e.Requests.ToFloor[e.CurrentFloor]      ||
-        !HasRequestBelow(e);
+        return elev.Requests.Down[elev.CurrentFloor] ||
+        elev.Requests.ToFloor[elev.CurrentFloor]      ||
+        !HasRequestBelow(elev);
     case elevio.MD_Up:
-            return e.Requests.Up[e.CurrentFloor]   ||
-            e.Requests.ToFloor[e.CurrentFloor] ||
-            !HasRequestAbove(e);
+            return elev.Requests.Up[elev.CurrentFloor]   ||
+            elev.Requests.ToFloor[elev.CurrentFloor] ||
+            !HasRequestAbove(elev);
     case elevio.MD_Stop:
         return true
     default:
@@ -65,34 +65,34 @@ func ShouldStop(e elevator.Elevator) (bool) {
 }
 
 
-func GetNewDirectionAndState(e elevator.Elevator) (elevio.MotorDirection, elevator.ElevatorState) {
-	switch e.Dir {
+func GetNewDirectionAndState(elev elevator.Elevator) (elevio.MotorDirection, elevator.ElevatorState) {
+	switch elev.Dir {
 	case elevio.MD_Up:
-		if HasRequestAbove(e) {
+		if HasRequestAbove(elev) {
 			return elevio.MD_Up, elevator.MOVING
-        } else if HasRequestHere(e) {
+        } else if HasRequestHere(elev) {
 			return elevio.MD_Stop, elevator.DOOR_OPEN
-		} else if HasRequestBelow(e) {
+		} else if HasRequestBelow(elev) {
 			return elevio.MD_Down, elevator.MOVING
 		} else {
 			return elevio.MD_Stop, elevator.IDLE
 		}
 	case elevio.MD_Down:
-		 if HasRequestBelow(e) {
+		 if HasRequestBelow(elev) {
 			return elevio.MD_Down, elevator.MOVING
-        } else if HasRequestHere(e) {
+        } else if HasRequestHere(elev) {
 			return elevio.MD_Stop, elevator.DOOR_OPEN
-		} else if HasRequestAbove(e) {
+		} else if HasRequestAbove(elev) {
 			return elevio.MD_Up, elevator.MOVING
 		} else {
 			return elevio.MD_Stop, elevator.IDLE
 		}
 	case elevio.MD_Stop:
-		if HasRequestHere(e) {
+		if HasRequestHere(elev) {
 			return elevio.MD_Stop, elevator.DOOR_OPEN
-		} else if HasRequestAbove(e) {
+		} else if HasRequestAbove(elev) {
 			return elevio.MD_Up, elevator.MOVING
-		} else if HasRequestBelow(e) {
+		} else if HasRequestBelow(elev) {
 			return elevio.MD_Down, elevator.MOVING
 		} else {
 			return elevio.MD_Stop, elevator.IDLE
@@ -103,48 +103,48 @@ func GetNewDirectionAndState(e elevator.Elevator) (elevio.MotorDirection, elevat
 }
 
 
-func ClearAtCurrentFloor(floor int, e elevator.Elevator) elevator.Requests {
-    e.Requests.ToFloor[floor] = false
-    switch e.Dir {
+func ClearAtCurrentFloor(floor int, elev elevator.Elevator) elevator.Requests {
+    elev.Requests.ToFloor[floor] = false
+    switch elev.Dir {
     case elevio.MD_Up:
-        if !HasRequestAbove(e) && !e.Requests.Up[floor] {
-            e.Requests.Down[floor] = false
+        if !HasRequestAbove(elev) && !elev.Requests.Up[floor] {
+            elev.Requests.Down[floor] = false
         }
-        e.Requests.Up[floor] = false
+        elev.Requests.Up[floor] = false
     case elevio.MD_Down:
-        if !HasRequestBelow(e) && !e.Requests.Down[floor] {
+        if !HasRequestBelow(elev) && !elev.Requests.Down[floor] {
 
-            e.Requests.Up[floor] = false
+            elev.Requests.Up[floor] = false
         }
-        e.Requests.Down[floor] = false
+        elev.Requests.Down[floor] = false
     default:
-        e.Requests.Up[floor] = false
-        e.Requests.Down[floor] = false
+        elev.Requests.Up[floor] = false
+        elev.Requests.Down[floor] = false
     }
-    return e.Requests
+    return elev.Requests
 }
 
 func MergeHallRequests(elevators map[string]elevator.Elevator) elevator.Requests {
 
-    reqs := elevator.Requests {
+    requests := elevator.Requests {
         Up: make([]bool, config.NumFloors),
         Down: make([]bool, config.NumFloors),
         ToFloor: make([]bool, config.NumFloors),
     }
 
-    for _, e := range elevators {
-        for f := e.MinFloor; f <= e.MaxFloor; f++ {
-            if e.Requests.Up[f] {
-                reqs.Up[f] = true
+    for _, elev := range elevators {
+        for floor := elev.MinFloor; floor <= elev.MaxFloor; floor++ {
+            if elev.Requests.Up[floor] {
+                requests.Up[floor] = true
             }
-            if e.Requests.Down[f] {
-                reqs.Down[f] = true
+            if elev.Requests.Down[floor] {
+                requests.Down[floor] = true
             }
-            if e.Requests.ToFloor[f] {
-                reqs.ToFloor[f] = true
+            if elev.Requests.ToFloor[floor] {
+                requests.ToFloor[floor] = true
             }
         }
     }
-    return reqs
+    return requests
 }
 

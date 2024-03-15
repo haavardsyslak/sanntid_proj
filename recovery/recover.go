@@ -13,9 +13,9 @@ func AttemptNetworkRecovery(id string,
 		select {
 		case <-timeout.C:
 			return elevator.Elevator{}, false
-		case e := <-elevatorFromNetworkCh:
-			if e.Id == id {
-				return e, true
+		case elevator := <-elevatorFromNetworkCh:
+			if elevator.Id == id {
+				return elevator, true
 			}
 		}
 	}
