@@ -62,7 +62,6 @@ func DistributeRequests(thisElevator elevator.Elevator,
 			elevatorToNetwork <- assignedElevator
 
 			if len(elevators) == 1 {
-
 				requestUpdateCh <- requests.MergeHallRequests(elevators)
 				elevator.SetHallLights(assignedElevator)
 			}

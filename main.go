@@ -30,7 +30,6 @@ func main() {
 	elevatorToNetworkCh := make(chan elevator.Elevator, 1000)
 	elevatorFromNetworkCh := make(chan elevator.Elevator, 1000)
 
-
 	go packethandler.HandleElevatorPackets(id,
 		elevatorToNetworkCh,
 		elevatorFromNetworkCh,
@@ -45,8 +44,7 @@ func main() {
 	go bcast.Transmitter(16569, elevatorTxCh)
 	go bcast.Receiver(16569, elevatorRxCh)
 
-    go peers.PeerUpdateListener(peerUpdateCh, connectedPeersCh, lostPeersCh)
-
+	go peers.PeerUpdateListener(peerUpdateCh, connectedPeersCh, lostPeersCh)
 
 	thisElevator := elevator.New(id)
 	networkElevator, hasRecovered := recovery.AttemptNetworkRecovery(id, elevatorFromNetworkCh)
@@ -65,9 +63,9 @@ func main() {
 		lostPeersCh,
 		peerTxEnable,
 	)
-    for {}
+	for {
+	}
 }
-
 
 func parseCliArgs(id *string, port *int) {
 
@@ -86,4 +84,3 @@ func parseCliArgs(id *string, port *int) {
 		*id = fmt.Sprintf("peers-%s-%d", localIP, os.Getpid())
 	}
 }
-
